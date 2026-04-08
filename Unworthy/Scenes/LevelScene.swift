@@ -1,0 +1,171 @@
+import SpriteKit
+import CoreMotion
+
+final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
+    weak var coordinator: SceneCoordinator?
+    let preferredScaleMode: SKSceneScaleMode = .resizeFill
+
+    var inputState: LevelInputState?
+
+    private let motionManager = CMMotionManager()
+    private let mapLoader: TiledMapLoader
+    private var collisions: [CGRect] = []
+    private var killTriggers: [CGRect] = []
+    private var cameraBounds: [CGRect] = []
+
+    private let player = PlayerNode()
+    private let vignette = VignetteNode()
+    private let fadeNode = FadeNode(size: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
+
+    private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
+    private var isRestarting = false
+
+    override init(size: CGSize) {
+        mapLoader = try! TiledMapLoader(mapName: "level")
+        super.init(size: size)
+        scaleMode = .resizeFill
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func didMove(to view: SKView) {
+        super.didMove(to: view)
+        physicsWorld.gravity = .zero
+        buildScene()
+        applyViewportLayout()
+        setupFadeOverlay()
+        fadeNode.fadeIn(duration: 1.5)
+        startMotion()
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        applyViewportLayout()
+        setupFadeOverlay()
+    }
+
+    private func buildScene() {
+        backgroundColor = .black
+        addMapLayers()
+        addPlayer()
+
+        uiNode.addChild(vignette)
+        vignette.position = .zero
+    }
+
+    private func setupFadeOverlay() {
+        fadeNode.removeFromParent()
+        fadeNode.size = CGSize(width: size.width, height: size.height)
+        fadeNode.position = .zero
+        uiNode.addChild(fadeNode)
+    }
+
+    private func applyViewportLayout() {
+        guard size.width > 0, size.height > 0 else { return }
+        viewportMetrics = ViewportMetrics(viewSize: size)
+        worldNode.setScale(viewportMetrics.scale)
+        vignette.resize(to: size)
+        cameraNode.position = viewportMetrics.scenePoint(fromWorldPoint: cameraWorldPosition())
+    }
+
+    private func addMapLayers() {
+        collisions = mapLoader.rectangles(ofType: "Ground", in: "Ground") + mapLoader.rectangles(ofType: "Platform", in: "Platforms")
+        killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
+        cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
+
+        let order = [
+            "Background0": GameConstants.layerBackground0,
+            "Background1": GameConstants.layerBackground1,
+            "Background2": GameConstants.layerBackground2,
+            "Ground": GameConstants.layerGround,
+            "Platforms": GameConstants.layerPlatforms,
+            "Objects": GameConstants.layerObjects,
+            "Foreground": GameConstants.layerForeground
+        ]
+
+        for (name, z) in order {
+            for object in mapLoader.objects(in: name) {
+                guard let path = mapLoader.assetPath(for: object) else { continue }
+                let node = SKSpriteNode(imageNamed: path)
+                node.position = mapLoader.position(for: object)
+                node.zPosition = z
+                if mapLoader.isFlippedHorizontally(object) {
+                    node.xScale = -1
+                }
+                worldNode.addChild(node)
+            }
+        }
+    }
+
+    private func addPlayer() {
+        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
+            player.position = mapLoader.position(for: spawn)
+        }
+        worldNode.addChild(player)
+    }
+
+    private func startMotion() {
+        motionManager.startGyroUpdates()
+    }
+
+    override func update(deltaTime: TimeInterval) {
+        let movementAxis = inputState?.movementAxis.dx ?? 0
+        let gyroX = motionManager.gyroData?.rotationRate.x ?? 0
+        let analogInput = CGFloat(movementAxis) + CGFloat(gyroX * 0.1)
+        player.update(deltaTime: deltaTime,
+                      inputAxis: analogInput,
+                      wantsJump: inputState?.consumeJumpRequest() ?? false,
+                      collisions: collisions)
+        updateCamera()
+        checkHazards()
+    }
+
+    private func updateCamera() {
+        cameraNode.position = viewportMetrics.scenePoint(fromWorldPoint: cameraWorldPosition())
+    }
+
+    private func cameraWorldPosition() -> CGPoint {
+        let targetWorldPosition = player.position
+        // Constrain to camera bounds if provided
+        if let bounds = cameraBounds.first {
+            return viewportMetrics.clampWorldPoint(targetWorldPosition, within: bounds)
+        }
+        return targetWorldPosition
+    }
+
+    private func checkHazards() {
+        guard !isRestarting else { return }
+
+        let playerRect = CGRect(x: player.position.x - player.size.width / 2,
+                                y: player.position.y - player.size.height / 2,
+                                width: player.size.width,
+                                height: player.size.height)
+        if killTriggers.contains(where: { $0.intersects(playerRect) }) {
+            restartWithFade()
+        }
+    }
+
+    private func restartWithFade() {
+        guard !isRestarting else { return }
+        isRestarting = true
+
+        vignette.flash(to: .red, duration: 0.25)
+        fadeNode.fadeOut(duration: 1.5) { [weak self] in
+            guard let self else { return }
+            self.respawn()
+            self.fadeNode.fadeIn(duration: 1.5) { [weak self] in
+                self?.isRestarting = false
+            }
+        }
+    }
+
+    private func respawn() {
+        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
+            player.position = mapLoader.position(for: spawn)
+            player.velocity = .zero
+            updateCamera()
+        }
+    }
+}

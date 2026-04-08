@@ -1,45 +1,57 @@
-//
-//  GameViewController.swift
-//  Unworthy
-//
-//  Created by Bruno Moreira on 11/03/2026.
-//
-
 import UIKit
 import SpriteKit
-import GameplayKit
 
 class GameViewController: UIViewController {
+    private var coordinator: SceneCoordinator?
+    private let hudOverlayView = LevelHUDOverlayView()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        if let view = self.view as! SKView? {
-            // Load the SKScene from 'GameScene.sks'
-            if let scene = SKScene(fileNamed: "GameScene") {
-                // Set the scale mode to scale to fit the window
-                scene.scaleMode = .aspectFill
-                
-                // Present the scene
-                view.presentScene(scene)
-            }
-            
-            view.ignoresSiblingOrder = true
-            
-            view.showsFPS = true
-            view.showsNodeCount = true
+        guard let skView = view as? SKView else { return }
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = true
+        skView.showsNodeCount = true
+
+        hudOverlayView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hudOverlayView)
+        NSLayoutConstraint.activate([
+            hudOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hudOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hudOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            hudOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        hudOverlayView.isHidden = true
+        hudOverlayView.onPauseRequested = { [weak self] in
+            self?.toggleScenePause()
         }
+
+        coordinator = SceneCoordinator(view: skView)
+        coordinator?.delegate = self
+        coordinator?.presentMainMenu()
+    }
+
+    private func toggleScenePause() {
+        guard let skView = view as? SKView else { return }
+        guard let scene = skView.scene else { return }
+        scene.isPaused.toggle()
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        return .landscape
     }
 
     override var prefersStatusBarHidden: Bool {
         return true
+    }
+}
+
+extension GameViewController: SceneCoordinatorDelegate {
+    func sceneCoordinator(_ coordinator: SceneCoordinator, willPresent scene: SKScene) {
+        if let levelScene = scene as? LevelScene {
+            hudOverlayView.configureForLevel()
+            levelScene.inputState = hudOverlayView.inputState
+        } else {
+            hudOverlayView.configureForMenu()
+        }
     }
 }

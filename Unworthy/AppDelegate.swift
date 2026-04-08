@@ -1,10 +1,3 @@
-//
-//  AppDelegate.swift
-//  Unworthy
-//
-//  Created by Bruno Moreira on 11/03/2026.
-//
-
 import UIKit
 
 @main

@@ -1,0 +1,13 @@
+{
+  "textureAtlas": {
+    "frameBaseName": "attack_effects",
+    "indexStartsAt": 1
+  },
+  "cycles": {
+    "attack": {
+      "frames": [0, 1, 2, 3],
+      "isLooping": false,
+      "frameRate": 12
+    }
+  }
+}

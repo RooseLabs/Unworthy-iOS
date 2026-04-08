@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="20" height="20" tilewidth="16" tileheight="16" infinite="1" backgroundcolor="#000000" nextlayerid="17" nextobjectid="238">
+ <editorsettings>
+  <export target="level.tmj" format="json"/>
+ </editorsettings>
+ <tileset firstgid="1" source="Assets.tsx"/>
+ <objectgroup id="13" name="Bounds">
+  <object id="199" type="CameraBounds" x="0" y="-800" width="23720" height="2960"/>
+  <object id="198" type="CameraBounds" x="15200" y="2160" width="22240" height="2160"/>
+  <object id="200" type="Boundary" x="16848" y="2576" width="192" height="1744"/>
+ </objectgroup>
+ <objectgroup color="#ff0000" id="16" name="KillTriggers">
+  <object id="201" type="KillTrigger" x="11200" y="2496" width="5840" height="80"/>
+ </objectgroup>
+ <objectgroup id="11" name="Background0">
+  <object id="154" type="TreesBack" gid="41" x="25920" y="4320" width="3840" height="2160"/>
+  <object id="155" type="TreesBack" gid="41" x="33600" y="4320" width="3840" height="2160"/>
+  <object id="156" type="TreesBack" gid="41" x="29760" y="4320" width="3840" height="2160"/>
+  <object id="184" name="Stars" type="Stars" x="0" y="-800" width="10080" height="2960"/>
+ </objectgroup>
+ <objectgroup id="5" name="Background1">
+  <object id="90" type="Figures" gid="23" x="2880" y="2160" width="3840" height="2160"/>
+  <object id="107" type="CloudsUp" gid="29" x="0" y="1360" width="3840" height="2160"/>
+  <object id="109" type="CloudsUp" gid="29" x="3840" y="1360" width="3840" height="2160"/>
+  <object id="110" type="CloudsUp" gid="29" x="7680" y="1360" width="3840" height="2160"/>
+  <object id="111" type="City1" gid="16" x="10560" y="2160" width="3840" height="2160"/>
+  <object id="113" type="City2" gid="17" x="14400" y="2160" width="3840" height="2160"/>
+  <object id="115" type="City2" gid="17" x="18240" y="2160" width="3840" height="2160"/>
+  <object id="116" type="City3" gid="18" x="18240" y="4320" width="3840" height="2160"/>
+  <object id="139" type="CloudsUp" gid="29" x="11520" y="1360" width="3840" height="2160"/>
+  <object id="140" type="CloudsUp" gid="29" x="15360" y="1360" width="3840" height="2160"/>
+  <object id="149" type="City2" gid="17" x="22080" y="2160" width="3840" height="2160"/>
+  <object id="150" type="CityForest" gid="38" x="22080" y="4320" width="3840" height="2160"/>
+  <object id="151" type="CityLimits" gid="37" x="16992" y="4320" width="3840" height="2160"/>
+ </objectgroup>
+ <objectgroup color="#ffffff" id="2" name="Ground">
+  <object id="1" type="Ground" x="0" y="2032" width="11520" height="128"/>
+  <object id="134" type="Ground" x="17040" y="4192" width="20400" height="128"/>
+ </objectgroup>
+ <objectgroup id="9" name="Platforms">
+  <object id="93" type="LargeRockPlatform" gid="33" x="7075" y="1177" width="1040" height="395"/>
+  <object id="102" type="RockPlatform" gid="32" x="8144" y="1248" width="536" height="214" visible="0"/>
+  <object id="104" type="RockPlatform" gid="32" x="8688" y="1584" width="536" height="214" visible="0"/>
+  <object id="105" type="RockPlatform" gid="32" x="9232" y="1904" width="536" height="214" visible="0"/>
+  <object id="179" type="Platform" x="11728" y="1664" width="712" height="128"/>
+  <object id="180" type="Platform" x="12928" y="1488" width="580" height="128"/>
+  <object id="181" type="Platform" x="13856" y="1712" width="1184" height="128"/>
+  <object id="182" type="Platform" x="15376" y="1792" width="752" height="128"/>
+  <object id="183" type="Platform" x="16496" y="1632" width="752" height="128"/>
+  <object id="196" type="Platform" x="17568" y="1792" width="752" height="128"/>
+  <object id="197" type="Platform" x="18592" y="1632" width="752" height="128"/>
+ </objectgroup>
+ <objectgroup id="10" name="Background2" locked="1">
+  <object id="86" type="CloudsDown" gid="28" x="0" y="2160" width="3840" height="2160"/>
+  <object id="89" type="CloudsDown" gid="28" x="3840" y="2160" width="3840" height="2160"/>
+  <object id="91" type="CloudsDown" gid="28" x="7680" y="2160" width="3840" height="2160"/>
+  <object id="112" type="CloudsDown" gid="28" x="11520" y="2160" width="3840" height="2160"/>
+  <object id="131" type="CloudsDown" gid="28" x="15360" y="2160" width="3840" height="2160"/>
+  <object id="158" type="CloudsDownEnd" gid="39" x="19200" y="2160" width="3840" height="2160"/>
+  <object id="177" type="CloudsUpEnd" gid="40" x="19200" y="1360" width="3840" height="2160"/>
+ </objectgroup>
+ <objectgroup id="6" name="Objects">
+  <object id="92" type="Door" gid="31" x="7360" y="784" width="471" height="771"/>
+  <object id="138" type="BossHouse" gid="30" x="34304" y="4208" width="2919" height="1111"/>
+ </objectgroup>
+ <objectgroup id="3" name="Entities">
+  <object id="178" type="Player" gid="42" x="1376" y="-416" width="299" height="385"/>
+  <object id="205" type="Flye" gid="8" x="17456" y="3952" width="505" height="493"/>
+  <object id="209" type="Flye" gid="8" x="22896" y="3808" width="505" height="493"/>
+  <object id="210" type="Flye" gid="8" x="29088" y="3392" width="505" height="493"/>
+  <object id="211" type="Flye" gid="8" x="35856" y="3968" width="505" height="493"/>
+  <object id="212" type="Flye" gid="8" x="31504" y="3248" width="505" height="493"/>
+  <object id="213" type="Flye" gid="8" x="28092" y="3712" width="505" height="493"/>
+  <object id="216" type="Flye" gid="8" x="16336" y="1120" width="505" height="493"/>
+ </objectgroup>
+ <objectgroup id="12" name="Foreground">
+  <object id="135" type="TreesFront" gid="26" x="29760" y="4320" width="3840" height="2160"/>
+  <object id="129" type="TreesFront" gid="26" x="26112" y="4320" width="3840" height="2160"/>
+ </objectgroup>
+</map>
