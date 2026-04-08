@@ -12,6 +12,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var collisions: [CGRect] = []
     private var killTriggers: [CGRect] = []
     private var cameraBounds: [CGRect] = []
+    private let solidRectangleTypes: Set<String> = ["Ground", "Platform"]
 
     private let player = PlayerNode()
     private let vignette = VignetteNode()
@@ -71,7 +72,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     }
 
     private func addMapLayers() {
-        collisions = mapLoader.rectangles(ofType: "Ground", in: "Ground") + mapLoader.rectangles(ofType: "Platform", in: "Platforms")
+        collisions = solidRectangleObjects(in: "Ground") + solidRectangleObjects(in: "Platforms")
         killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
         cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
 
@@ -87,16 +88,29 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
 
         for (name, z) in order {
             for object in mapLoader.objects(in: name) {
-                guard let path = mapLoader.assetPath(for: object) else { continue }
-                let node = SKSpriteNode(imageNamed: path)
-                node.position = mapLoader.position(for: object)
-                node.zPosition = z
-                if mapLoader.isFlippedHorizontally(object) {
-                    node.xScale = -1
+                guard object.visible ?? true else { continue }
+
+                if solidRectangleTypes.contains(object.type) {
+                    let node = GroundNode(rect: mapLoader.rect(for: object), zPosition: z)
+                    worldNode.addChild(node)
+                } else {
+                    guard let path = mapLoader.assetPath(for: object) else { continue }
+                    let node = SKSpriteNode(imageNamed: path)
+                    node.position = mapLoader.position(for: object)
+                    node.zPosition = z
+                    if mapLoader.isFlippedHorizontally(object) {
+                        node.xScale = -1
+                    }
+                    worldNode.addChild(node)
                 }
-                worldNode.addChild(node)
             }
         }
+    }
+
+    private func solidRectangleObjects(in layerName: String) -> [CGRect] {
+        mapLoader.objects(in: layerName)
+            .filter { ($0.visible ?? true) && solidRectangleTypes.contains($0.type) }
+            .map { mapLoader.rect(for: $0) }
     }
 
     private func addPlayer() {

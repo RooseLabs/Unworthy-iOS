@@ -3,7 +3,7 @@ import SpriteKit
 
 class GameViewController: UIViewController {
     private var coordinator: SceneCoordinator?
-    private let hudOverlayView = LevelHUDOverlayView()
+    private let hudOverlayView = HUDView()
 
     override func viewDidLoad() {
         super.viewDidLoad()
