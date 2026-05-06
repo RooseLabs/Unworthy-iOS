@@ -157,10 +157,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private func checkHazards() {
         guard !isRestarting else { return }
 
-        let playerRect = CGRect(x: player.position.x - player.size.width / 2,
-                                y: player.position.y - player.size.height / 2,
-                                width: player.size.width,
-                                height: player.size.height)
+        let playerRect = player.hitbox
         if killTriggers.contains(where: { $0.intersects(playerRect) }) {
             restartWithFade()
         }

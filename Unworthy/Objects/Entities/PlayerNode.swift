@@ -19,6 +19,10 @@ final class PlayerNode: SKSpriteNode {
     private var pendingAttackEnd = false
     private var attackEffectOffset = CGVector(dx: 130, dy: 105)
 
+    private let hitboxWidth: CGFloat = 77.55
+    private let hitboxHeight: CGFloat = 305
+    private let hitboxOffsetRight: CGFloat = 93.09
+
     private let animationLibrary = try? AnimationLibrary.load(name: "player")
     private lazy var animator: SpriteAnimator? = {
         guard let library = animationLibrary else { return nil }
@@ -34,8 +38,8 @@ final class PlayerNode: SKSpriteNode {
     }()
 
     init() {
-        let size = CGSize(width: 200, height: 320)
-        super.init(texture: SKTexture(imageNamed: "Player1"), color: .white, size: size)
+        let texture = SKTexture(imageNamed: "Player1")
+        super.init(texture: texture, color: .white, size: texture.size())
         name = "Player"
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
         zPosition = GameConstants.layerEntities
@@ -85,10 +89,7 @@ final class PlayerNode: SKSpriteNode {
         newPosition.y += velocity.dy * dt
 
         // Simple AABB collision resolve
-        let playerRect = CGRect(x: newPosition.x - size.width / 2,
-                                y: newPosition.y - size.height / 2,
-                                width: size.width,
-                                height: size.height)
+        let playerRect = hitboxRect(at: newPosition)
         isGrounded = false
         for rect in collisions {
             if playerRect.intersects(rect) {
@@ -98,7 +99,7 @@ final class PlayerNode: SKSpriteNode {
                     velocity.dy = 0
                     isGrounded = true
                 } else if position.y <= rect.minY {
-                    newPosition.y = rect.minY - size.height / 2
+                    newPosition.y = rect.minY - (hitboxHeight - size.height / 2)
                     velocity.dy = 0
                 }
             }
@@ -218,5 +219,17 @@ final class PlayerNode: SKSpriteNode {
         if animator.currentAnimation != "idle" {
             animator.play("idle")
         }
+    }
+
+    var hitbox: CGRect {
+        hitboxRect(at: position)
+    }
+
+    private func hitboxRect(at position: CGPoint) -> CGRect {
+        let leftOffset = size.width - hitboxOffsetRight - hitboxWidth
+        let offsetX = isFacingRight ? hitboxOffsetRight : leftOffset
+        let originX = position.x - size.width / 2 + offsetX
+        let originY = position.y - size.height / 2
+        return CGRect(x: originX, y: originY, width: hitboxWidth, height: hitboxHeight)
     }
 }
