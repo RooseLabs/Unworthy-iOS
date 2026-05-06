@@ -59,7 +59,7 @@ final class TiledMapLoader {
             return rect.origin
         }
         let centerX = object.x + object.width / 2
-        let y = -object.y - object.height / 2
+        let y = -object.y + object.height / 2
         return CGPoint(x: centerX, y: y)
     }
 

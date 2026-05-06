@@ -17,6 +17,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private let player = PlayerNode()
     private let vignette = VignetteNode()
     private let fadeNode = FadeNode(size: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
+    private var starsNodes: [StarsNode] = []
 
     private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var isRestarting = false
@@ -38,7 +39,6 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         applyViewportLayout()
         setupFadeOverlay()
         fadeNode.fadeIn(duration: 1.5)
-        startMotion()
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -72,6 +72,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     }
 
     private func addMapLayers() {
+        starsNodes.removeAll()
         collisions = solidRectangleObjects(in: "Ground") + solidRectangleObjects(in: "Platforms")
         killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
         cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
@@ -93,6 +94,13 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
                 if solidRectangleTypes.contains(object.type) {
                     let node = GroundNode(rect: mapLoader.rect(for: object), zPosition: z)
                     worldNode.addChild(node)
+                } else if object.type == "Stars" {
+                    let starsRect = mapLoader.rect(for: object)
+                    let starsNode = StarsNode(size: starsRect.size)
+                    starsNode.position = starsRect.origin
+                    starsNode.zPosition = z
+                    worldNode.addChild(starsNode)
+                    starsNodes.append(starsNode)
                 } else {
                     guard let path = mapLoader.assetPath(for: object) else { continue }
                     let node = SKSpriteNode(imageNamed: path)
@@ -120,16 +128,12 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         worldNode.addChild(player)
     }
 
-    private func startMotion() {
-        motionManager.startGyroUpdates()
-    }
-
     override func update(deltaTime: TimeInterval) {
-        let movementAxis = inputState?.movementAxis.dx ?? 0
-        let gyroX = motionManager.gyroData?.rotationRate.x ?? 0
-        let analogInput = CGFloat(movementAxis) + CGFloat(gyroX * 0.1)
+        for stars in starsNodes {
+            stars.update(deltaTime: deltaTime)
+        }
         player.update(deltaTime: deltaTime,
-                      inputAxis: analogInput,
+                      inputAxis: CGFloat(inputState?.movementAxis.dx ?? 0),
                       wantsJump: inputState?.consumeJumpRequest() ?? false,
                       collisions: collisions)
         updateCamera()

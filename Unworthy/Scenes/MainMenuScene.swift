@@ -62,7 +62,7 @@ final class MainMenuScene: BaseScene, CoordinatedScene {
     }
 
     override func update(deltaTime: TimeInterval) {
-        starsNode.update(deltaTime: deltaTime, size: size)
+        starsNode.update(deltaTime: deltaTime)
 
         tapBlinkTime += deltaTime * 3
         tapToBegin.alpha = 0.5 + 0.5 * CGFloat(sin(tapBlinkTime))

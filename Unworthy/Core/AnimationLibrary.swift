@@ -52,10 +52,12 @@ final class AnimationLibrary {
     }
 
     static func load(name: String, bundle: Bundle = .main) throws -> AnimationLibrary {
-        guard let url = bundle.url(forResource: name, withExtension: "json", subdirectory: "Assets/Animations") else {
+        let url = bundle.url(forResource: name, withExtension: "json", subdirectory: "Assets/Animations")
+            ?? bundle.url(forResource: name, withExtension: "json")
+        guard let resolvedUrl = url else {
             throw NSError(domain: "AnimationLibrary", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing animation file \(name).json"])
         }
-        let data = try Data(contentsOf: url)
+        let data = try Data(contentsOf: resolvedUrl)
         let definition = try JSONDecoder().decode(AnimationDefinition.self, from: data)
         return AnimationLibrary(definition: definition)
     }

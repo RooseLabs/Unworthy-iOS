@@ -36,20 +36,18 @@ final class AssetProvider {
     /// These keys work directly with SKTexture(imageNamed:) for xcassets images.
     static let tiledToTexture: [String: String] = [
         // Background objects
-        "CloudsUp": "Background/clouds_up",
-        "CloudsDown": "Background/clouds_down",
-        "CloudsUpEnd": "Background/clouds_up_end",
-        "CloudsDownEnd": "Background/clouds_down_end",
-        "TreesFront": "Background/trees_front",
-        "TreesBack": "Background/trees_back",
-        "CityLimits": "Background/city_limits",
-        "CityForest": "Background/city_forest",
-        "City1": "Background/city1",
-        "City2": "Background/city2",
-        "City3": "Background/city3",
-        "Figures": "Background/figures",
-        "Stars": "Background/stars",
-        "Faces": "Background/faces",
+        "CloudsUp": "clouds_up",
+        "CloudsDown": "clouds_down",
+        "CloudsUpEnd": "clouds_up_end",
+        "CloudsDownEnd": "clouds_down_end",
+        "TreesFront": "trees_front",
+        "TreesBack": "trees_back",
+        "CityLimits": "city_limits",
+        "CityForest": "city_forest",
+        "City1": "city1",
+        "City2": "city2",
+        "City3": "city3",
+        "Figures": "figures",
 
         // Object platform types
         "RockPlatform": "small_platform",
