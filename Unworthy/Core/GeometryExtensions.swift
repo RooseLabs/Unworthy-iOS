@@ -43,4 +43,8 @@ extension CGFloat {
 
 extension CGVector {
     static var zero: CGVector { CGVector(dx: 0, dy: 0) }
+
+    func lerp(to other: CGVector, t: CGFloat) -> CGVector {
+        CGVector(dx: dx + (other.dx - dx) * t, dy: dy + (other.dy - dy) * t)
+    }
 }

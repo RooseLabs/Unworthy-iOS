@@ -12,6 +12,8 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var collisions: [CGRect] = []
     private var killTriggers: [CGRect] = []
     private var cameraBounds: [CGRect] = []
+    private let cameraController = CameraController()
+
     private let solidRectangleTypes: Set<String> = ["Ground", "Platform"]
 
     private let player = PlayerNode()
@@ -51,6 +53,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         backgroundColor = .black
         addMapLayers()
         addPlayer()
+        setupCamera()
 
         uiNode.addChild(vignette)
         vignette.position = .zero
@@ -68,7 +71,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         viewportMetrics = ViewportMetrics(viewSize: size)
         worldNode.setScale(viewportMetrics.scale)
         vignette.resize(to: size)
-        cameraNode.position = viewportMetrics.scenePoint(fromWorldPoint: cameraWorldPosition())
+        updateCamera(deltaTime: 0)
     }
 
     private func addMapLayers() {
@@ -76,6 +79,8 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         collisions = solidRectangleObjects(in: "Ground") + solidRectangleObjects(in: "Platforms")
         killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
         cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
+
+        cameraController.resetBounds(cameraBounds)
 
         let order = [
             "Background0": GameConstants.layerBackground0,
@@ -128,6 +133,12 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         worldNode.addChild(player)
     }
 
+    private func setupCamera() {
+        cameraController.setFollowTarget({ [weak player] in
+            player?.position ?? .zero
+        }, viewportMetrics: viewportMetrics)
+    }
+
     override func update(deltaTime: TimeInterval) {
         for stars in starsNodes {
             stars.update(deltaTime: deltaTime)
@@ -137,21 +148,19 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
                       wantsJump: inputState?.consumeJumpRequest() ?? false,
                       wantsAttack: inputState?.consumeAttackRequest() ?? false,
                       collisions: collisions)
-        updateCamera()
+        updateCamera(deltaTime: deltaTime)
         checkHazards()
     }
 
-    private func updateCamera() {
-        cameraNode.position = viewportMetrics.scenePoint(fromWorldPoint: cameraWorldPosition())
-    }
+    private func updateCamera(deltaTime: TimeInterval) {
+        let desiredOffset = CGVector(dx: player.isFacingRight ? 1 : -1, dy: 0)
+        let lerpSpeed: CGFloat = player.isAttacking ? 1.5 : 3.0
+        let t = min(1, lerpSpeed * CGFloat(deltaTime))
+        cameraController.offset = cameraController.offset.lerp(to: desiredOffset, t: t)
 
-    private func cameraWorldPosition() -> CGPoint {
-        let targetWorldPosition = player.position
-        // Constrain to camera bounds if provided
-        if let bounds = cameraBounds.first {
-            return viewportMetrics.clampWorldPoint(targetWorldPosition, within: bounds)
+        if let cameraWorldPosition = cameraController.update(deltaTime: deltaTime, viewportMetrics: viewportMetrics) {
+            cameraNode.position = viewportMetrics.scenePoint(fromWorldPoint: cameraWorldPosition)
         }
-        return targetWorldPosition
     }
 
     private func checkHazards() {
@@ -181,7 +190,8 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
             player.position = mapLoader.position(for: spawn)
             player.velocity = .zero
-            updateCamera()
+            setupCamera()
+            updateCamera(deltaTime: 0)
         }
     }
 }

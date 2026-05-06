@@ -8,9 +8,9 @@ final class PlayerNode: SKSpriteNode {
     var moveSpeedWhileAttacking: CGFloat = 180
     var jumpForce: CGFloat = 1800
 
-    private var isFacingRight = true
+    private var facingRight = true
     private var pressedAttack = false
-    private var isAttacking = false
+    private var attacking = false
     private var lastAttackAnimation = ""
     private var attackComboTimeframe: TimeInterval = 1.0
     private var attackComboTimer: TimeInterval = 0
@@ -81,7 +81,7 @@ final class PlayerNode: SKSpriteNode {
         let wasGrounded = isGrounded
         velocity.dy -= GameConstants.gravity * GameConstants.pixelsPerUnit * dt
         velocity.dy = max(velocity.dy, -maxFallSpeed)
-        let currentMoveSpeed = (pressedAttack || isAttacking) ? moveSpeedWhileAttacking : moveSpeed
+        let currentMoveSpeed = (pressedAttack || attacking) ? moveSpeedWhileAttacking : moveSpeed
         velocity.dx = inputAxis * currentMoveSpeed
 
         var newPosition = position
@@ -123,7 +123,7 @@ final class PlayerNode: SKSpriteNode {
         }
         attackComboTimer = attackComboTimeframe
         attackCooldownTimer = attackCooldown
-        isAttacking = true
+        attacking = true
         attackEffectNode.isHidden = false
         attackEffectNode.position = CGPoint(x: attackEffectOffset.dx, y: attackEffectOffset.dy)
         attackEffectAnimator?.play("attack", force: true) { [weak self] in
@@ -131,17 +131,25 @@ final class PlayerNode: SKSpriteNode {
         }
     }
 
+    var isFacingRight: Bool {
+        facingRight
+    }
+
+    var isAttacking: Bool {
+        attacking
+    }
+
     private func updateFacingDirection(inputAxis: CGFloat) {
-        if inputAxis < -0.05, isFacingRight {
+        if inputAxis < -0.05, facingRight {
             setFacingDirection(false)
-        } else if inputAxis > 0.05, !isFacingRight {
+        } else if inputAxis > 0.05, !facingRight {
             setFacingDirection(true)
         }
     }
 
     private func setFacingDirection(_ facingRight: Bool) {
-        guard isFacingRight != facingRight else { return }
-        isFacingRight = facingRight
+        guard self.facingRight != facingRight else { return }
+        self.facingRight = facingRight
         xScale = facingRight ? 1 : -1
     }
 
@@ -158,11 +166,11 @@ final class PlayerNode: SKSpriteNode {
             lastAttackAnimation = nextAnimation
             animator.play(nextAnimation, force: true) { [weak self] in
                 self?.pendingAttackEnd = true
-                self?.isAttacking = false
+                self?.attacking = false
             }
             return
         }
-        if isAttacking {
+        if attacking {
             return
         }
 
@@ -227,7 +235,7 @@ final class PlayerNode: SKSpriteNode {
 
     private func hitboxRect(at position: CGPoint) -> CGRect {
         let leftOffset = size.width - hitboxOffsetRight - hitboxWidth
-        let offsetX = isFacingRight ? hitboxOffsetRight : leftOffset
+        let offsetX = facingRight ? hitboxOffsetRight : leftOffset
         let originX = position.x - size.width / 2 + offsetX
         let originY = position.y - size.height / 2
         return CGRect(x: originX, y: originY, width: hitboxWidth, height: hitboxHeight)
