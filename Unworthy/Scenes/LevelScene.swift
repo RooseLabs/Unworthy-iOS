@@ -135,6 +135,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         player.update(deltaTime: deltaTime,
                       inputAxis: CGFloat(inputState?.movementAxis.dx ?? 0),
                       wantsJump: inputState?.consumeJumpRequest() ?? false,
+                      wantsAttack: inputState?.consumeAttackRequest() ?? false,
                       collisions: collisions)
         updateCamera()
         checkHazards()

@@ -100,7 +100,8 @@ final class SpriteAnimator {
 
     func play(_ name: String, force: Bool = false, completion: (() -> Void)? = nil) {
         guard let node else { return }
-        if !force && currentAnimation == name { return }
+        let hasRunningAction = node.action(forKey: "animation") != nil
+        if !force && currentAnimation == name && hasRunningAction { return }
         guard let action = library.action(for: name) else { return }
         currentAnimation = name
         node.removeAction(forKey: "animation")
@@ -108,8 +109,7 @@ final class SpriteAnimator {
             node.run(action, withKey: "animation")
             completion?()
         } else {
-            node.run(SKAction.sequence([action, .run { [weak self] in
-                self?.currentAnimation = nil
+            node.run(SKAction.sequence([action, .run {
                 completion?()
             }]), withKey: "animation")
         }

@@ -35,6 +35,10 @@ final class HUDView: UIView {
             inputState?.requestJump()
         }
 
+        attackButton.onTouchDown = { [weak inputState] in
+            inputState?.requestAttack()
+        }
+
         attackButton.onTouchStateChanged = { [weak inputState] isPressed in
             inputState?.setAttackPressed(isPressed)
         }
@@ -87,6 +91,7 @@ final class HUDView: UIView {
         inputState.setMovementAxis(.zero)
         inputState.setAttackPressed(false)
         _ = inputState.consumeJumpRequest()
+        _ = inputState.consumeAttackRequest()
     }
 
     func configureForMenu() {
@@ -95,6 +100,7 @@ final class HUDView: UIView {
         inputState.setMovementAxis(.zero)
         inputState.setAttackPressed(false)
         _ = inputState.consumeJumpRequest()
+        _ = inputState.consumeAttackRequest()
     }
 
     private func place(_ view: UIView, anchorX: CGFloat, anchorY: CGFloat, in safeRect: CGRect) {
