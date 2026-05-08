@@ -16,4 +16,6 @@ enum GameConstants {
     static let layerForeground: CGFloat = 0.7
     static let layerVignette: CGFloat = 0.8
     static let layerUI: CGFloat = 0.9
+
+    static let debug: Bool = false
 }

@@ -3,10 +3,11 @@ import SpriteKit
 final class PlayerNode: SKSpriteNode {
     var velocity = CGVector(dx: 0, dy: 0)
     var isGrounded = false
-    var maxFallSpeed: CGFloat = 1200
-    var moveSpeed: CGFloat = 900
-    var moveSpeedWhileAttacking: CGFloat = 180
-    var jumpForce: CGFloat = 1800
+    var maxFallSpeed: CGFloat = 6 * GameConstants.pixelsPerUnit
+    var moveSpeed: CGFloat = 2.5 * GameConstants.pixelsPerUnit
+    var moveSpeedWhileAttacking: CGFloat = 0.5 * GameConstants.pixelsPerUnit
+    var jumpForce: CGFloat = 6.2 * GameConstants.pixelsPerUnit
+    var gravityScale: CGFloat = 1.5
 
     private var facingRight = true
     private var pressedAttack = false
@@ -18,6 +19,7 @@ final class PlayerNode: SKSpriteNode {
     private var attackCooldownTimer: TimeInterval = 0
     private var pendingAttackEnd = false
     private var attackEffectOffset = CGVector(dx: 130, dy: 105)
+    private var idleAnimationTimer: TimeInterval = 0
 
     private let hitboxWidth: CGFloat = 77.55
     private let hitboxHeight: CGFloat = 305
@@ -71,16 +73,15 @@ final class PlayerNode: SKSpriteNode {
             lastAttackAnimation = ""
         }
 
-        pressedAttack = wantsAttack
+        pressedAttack = wantsAttack && isGrounded
         if pressedAttack {
             performAttack()
         }
 
         updateFacingDirection(inputAxis: inputAxis)
 
-        let wasGrounded = isGrounded
-        velocity.dy -= GameConstants.gravity * GameConstants.pixelsPerUnit * dt
-        velocity.dy = max(velocity.dy, -maxFallSpeed)
+        velocity.dy -= GameConstants.gravity * gravityScale * GameConstants.pixelsPerUnit * dt
+        velocity.dy = min(max(velocity.dy, -maxFallSpeed), jumpForce)
         let currentMoveSpeed = (pressedAttack || attacking) ? moveSpeedWhileAttacking : moveSpeed
         velocity.dx = inputAxis * currentMoveSpeed
 
@@ -112,7 +113,7 @@ final class PlayerNode: SKSpriteNode {
 
         position = newPosition
         let delta = CGVector(dx: position.x - lastPosition.x, dy: position.y - lastPosition.y)
-        updateAnimationState(wasGrounded: wasGrounded, deltaPosition: delta)
+        updateAnimationState(deltaTime: deltaTime, deltaPosition: delta)
         lastPosition = position
     }
 
@@ -153,54 +154,47 @@ final class PlayerNode: SKSpriteNode {
         xScale = facingRight ? 1 : -1
     }
 
-    private func updateAnimationState(wasGrounded: Bool, deltaPosition: CGVector) {
+    private func updateAnimationState(deltaTime: TimeInterval, deltaPosition: CGVector) {
         guard let animator else { return }
-        let isAnimationRunning = action(forKey: "animation") != nil
-        if pendingAttackEnd {
-            pendingAttackEnd = false
-            animator.play("attackEnd", force: true)
-            return
-        }
+
+        let isMovingHorizontally = abs(deltaPosition.dx) > 0.01
+        let isMovingVertically = abs(deltaPosition.dy) > 0.01
+
         if pressedAttack {
-            let nextAnimation = lastAttackAnimation == "attack1" ? "attack2" : "attack1"
+            let nextAnimation: String
+            if animator.currentAnimation == "attack1", animator.isComplete {
+                nextAnimation = "attack2"
+            } else if animator.currentAnimation == "attack2", animator.isComplete {
+                nextAnimation = "attack1"
+            } else {
+                nextAnimation = lastAttackAnimation == "attack1" ? "attack2" : "attack1"
+            }
             lastAttackAnimation = nextAnimation
             animator.play(nextAnimation, force: true) { [weak self] in
-                self?.pendingAttackEnd = true
                 self?.attacking = false
             }
             return
         }
+
+        if animator.currentAnimation == "attack1" || animator.currentAnimation == "attack2" {
+            if animator.isComplete {
+                animator.play("attackEnd", force: true)
+                return
+            }
+        }
+
         if attacking {
             return
         }
 
-        let isMovingHorizontally = abs(deltaPosition.dx) > 1
-        let isMovingVertically = abs(deltaPosition.dy) > 1
-
-        if !isGrounded {
-            if isMovingVertically {
-                if deltaPosition.dy > 0 {
-                    if animator.currentAnimation != "jump" {
-                        animator.play("jump")
-                    }
-                } else if animator.currentAnimation != "fall" {
-                    animator.play("fall")
+        if isMovingVertically && !isGrounded {
+            if deltaPosition.dy > 0 {
+                if animator.currentAnimation != "jump" {
+                    animator.play("jump")
                 }
+            } else if animator.currentAnimation != "fall" {
+                animator.play("fall")
             }
-            if animator.currentAnimation == "jump" || animator.currentAnimation == "fall" {
-                return
-            }
-            if isMovingHorizontally {
-                return
-            }
-        }
-
-        if isGrounded, animator.currentAnimation == "fall" {
-            animator.play("land", force: true)
-            return
-        }
-
-        if animator.currentAnimation == "land", isAnimationRunning {
             return
         }
 
@@ -208,24 +202,50 @@ final class PlayerNode: SKSpriteNode {
             if !isGrounded {
                 return
             }
-            if animator.currentAnimation == "walkLoop" || animator.currentAnimation == "walkStart" {
-                return
-            }
-            animator.play("walkStart") { [weak self] in
-                self?.animator?.play("walkLoop")
+            switch animator.currentAnimation {
+            case nil, "idle", "fall", "attackEnd":
+                animator.play("walkStart")
+            case "walkStart":
+                if animator.isComplete {
+                    animator.play("walkLoop")
+                }
+            case "walkEnd":
+                animator.play(animator.isComplete ? "walkStart" : "walkLoop")
+            default:
+                animator.play("walkLoop")
             }
             return
         }
 
-        if animator.currentAnimation == "walkLoop" || animator.currentAnimation == "walkStart" {
-            animator.play("walkEnd") { [weak self] in
-                self?.animator?.play("idle")
+        switch animator.currentAnimation {
+        case nil:
+            playIdleAnimation(deltaTime: deltaTime)
+        case "walkLoop":
+            animator.play("walkEnd")
+        case "walkStart":
+            if animator.isComplete {
+                playIdleAnimation(deltaTime: deltaTime)
+            } else {
+                animator.play("walkEnd")
             }
-            return
+        case "fall":
+            if isGrounded {
+                animator.play("land")
+            }
+        default:
+            if animator.isComplete {
+                playIdleAnimation(deltaTime: deltaTime)
+            }
         }
+    }
 
-        if animator.currentAnimation != "idle" {
-            animator.play("idle")
+    private func playIdleAnimation(deltaTime: TimeInterval) {
+        idleAnimationTimer -= deltaTime
+        if idleAnimationTimer <= 0 {
+            animator?.play("idle")
+            idleAnimationTimer = Double.random(in: 3.0...7.5)
+        } else {
+            texture = SKTexture(imageNamed: "Player1")
         }
     }
 

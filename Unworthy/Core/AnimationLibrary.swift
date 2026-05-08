@@ -92,6 +92,7 @@ final class SpriteAnimator {
     private weak var node: SKSpriteNode?
     private let library: AnimationLibrary
     private(set) var currentAnimation: String?
+    private(set) var isComplete: Bool = false
 
     init(node: SKSpriteNode, library: AnimationLibrary) {
         self.node = node
@@ -101,15 +102,19 @@ final class SpriteAnimator {
     func play(_ name: String, force: Bool = false, completion: (() -> Void)? = nil) {
         guard let node else { return }
         let hasRunningAction = node.action(forKey: "animation") != nil
-        if !force && currentAnimation == name && hasRunningAction { return }
+        if !force && currentAnimation == name {
+            if hasRunningAction && !isComplete { return }
+        }
         guard let action = library.action(for: name) else { return }
         currentAnimation = name
+        isComplete = false
         node.removeAction(forKey: "animation")
         if library.isLooping(name) {
             node.run(action, withKey: "animation")
             completion?()
         } else {
-            node.run(SKAction.sequence([action, .run {
+            node.run(SKAction.sequence([action, .run { [weak self] in
+                self?.isComplete = true
                 completion?()
             }]), withKey: "animation")
         }

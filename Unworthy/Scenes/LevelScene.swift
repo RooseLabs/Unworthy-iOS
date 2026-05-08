@@ -12,7 +12,10 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var collisions: [CGRect] = []
     private var killTriggers: [CGRect] = []
     private var cameraBounds: [CGRect] = []
+    private var levelBounds: [CGRect] = []
     private let cameraController = CameraController()
+
+    private let debugNode = SKNode()
 
     private let solidRectangleTypes: Set<String> = ["Ground", "Platform"]
 
@@ -55,6 +58,11 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         addPlayer()
         setupCamera()
 
+        if GameConstants.debug {
+            debugNode.zPosition = GameConstants.layerForeground + 0.5
+            worldNode.addChild(debugNode)
+        }
+
         uiNode.addChild(vignette)
         vignette.position = .zero
     }
@@ -79,6 +87,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         collisions = solidRectangleObjects(in: "Ground") + solidRectangleObjects(in: "Platforms")
         killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
         cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
+        levelBounds = mapLoader.rectangles(ofType: "Boundary", in: "Bounds")
 
         cameraController.resetBounds(cameraBounds)
 
@@ -149,7 +158,28 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
                       wantsAttack: inputState?.consumeAttackRequest() ?? false,
                       collisions: collisions)
         updateCamera(deltaTime: deltaTime)
+        updateDebugOverlays()
         checkHazards()
+    }
+
+    private func updateDebugOverlays() {
+        guard GameConstants.debug else { return }
+        debugNode.removeAllChildren()
+
+        drawDebug(rect: player.hitbox, stroke: .cyan, fill: SKColor.clear)
+        collisions.forEach { drawDebug(rect: $0, stroke: .yellow, fill: SKColor.clear) }
+        killTriggers.forEach { drawDebug(rect: $0, stroke: .red, fill: SKColor.red.withAlphaComponent(0.2)) }
+        cameraBounds.forEach { drawDebug(rect: $0, stroke: .green, fill: SKColor.clear) }
+        levelBounds.forEach { drawDebug(rect: $0, stroke: .purple, fill: SKColor.clear) }
+    }
+
+    private func drawDebug(rect: CGRect, stroke: SKColor, fill: SKColor) {
+        let shape = SKShapeNode(rect: rect)
+        shape.strokeColor = stroke
+        shape.fillColor = fill
+        shape.lineWidth = 2
+        shape.isAntialiased = false
+        debugNode.addChild(shape)
     }
 
     private func updateCamera(deltaTime: TimeInterval) {

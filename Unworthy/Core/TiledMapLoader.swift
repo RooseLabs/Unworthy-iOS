@@ -52,7 +52,7 @@ final class TiledMapLoader {
 
     func position(for object: TiledObject) -> CGPoint {
         if let origin = typeToOrigin[object.type] {
-            return CGPoint(x: object.x + origin.x, y: -object.y - origin.y)
+            return CGPoint(x: object.x + origin.x, y: -object.y + origin.y)
         }
         if rectangleTypes.contains(object.type) {
             let rect = rect(for: object)
