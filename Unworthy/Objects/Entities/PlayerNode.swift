@@ -32,6 +32,8 @@ final class PlayerNode: SKSpriteNode {
     }()
     private var lastPosition: CGPoint = .zero
 
+    weak var levelScene: LevelScene?
+
     private let attackEffectLibrary = try? AnimationLibrary.load(name: "attack_effects")
     private let attackEffectNode = SKSpriteNode()
     private lazy var attackEffectAnimator: SpriteAnimator? = {
@@ -62,7 +64,12 @@ final class PlayerNode: SKSpriteNode {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(deltaTime: TimeInterval, inputAxis: CGFloat, wantsJump: Bool, wantsAttack: Bool, collisions: [CGRect]) {
+    func update(deltaTime: TimeInterval) {
+        let inputState = levelScene?.inputState
+        let inputAxis = CGFloat(inputState?.movementAxis.dx ?? 0)
+        let wantsJump = inputState?.consumeJumpRequest() ?? false
+        let wantsAttack = inputState?.consumeAttackRequest() ?? false
+        let collisions = levelScene?.playerCollisions ?? []
         let dt = CGFloat(deltaTime)
         if attackCooldownTimer > 0 {
             attackCooldownTimer = max(0, attackCooldownTimer - deltaTime)

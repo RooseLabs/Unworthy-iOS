@@ -27,6 +27,10 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var isRestarting = false
 
+    var playerCollisions: [CGRect] {
+        collisions
+    }
+
     override init(size: CGSize) {
         mapLoader = try! TiledMapLoader(mapName: "level")
         super.init(size: size)
@@ -139,6 +143,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
             player.position = mapLoader.position(for: spawn)
         }
+        player.levelScene = self
         worldNode.addChild(player)
     }
 
@@ -152,11 +157,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         for stars in starsNodes {
             stars.update(deltaTime: deltaTime)
         }
-        player.update(deltaTime: deltaTime,
-                      inputAxis: CGFloat(inputState?.movementAxis.dx ?? 0),
-                      wantsJump: inputState?.consumeJumpRequest() ?? false,
-                      wantsAttack: inputState?.consumeAttackRequest() ?? false,
-                      collisions: collisions)
+        player.update(deltaTime: deltaTime)
         updateCamera(deltaTime: deltaTime)
         updateDebugOverlays()
         checkHazards()
