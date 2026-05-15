@@ -11,6 +11,14 @@ final class GroundNode: SKShapeNode {
         self.isAntialiased = false
         self.zPosition = zPosition
         self.name = "Ground"
+
+        let physicsBody = SKPhysicsBody(rectangleOf: rect.size)
+        physicsBody.isDynamic = false
+        physicsBody.affectedByGravity = false
+        physicsBody.categoryBitMask = PhysicsCategory.ground
+        physicsBody.collisionBitMask = PhysicsCategory.none
+        physicsBody.contactTestBitMask = PhysicsCategory.player
+        self.physicsBody = physicsBody
     }
 
     required init?(coder aDecoder: NSCoder) {

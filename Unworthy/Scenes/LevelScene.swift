@@ -1,7 +1,7 @@
 import SpriteKit
 import CoreMotion
 
-final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
+final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding, SKPhysicsContactDelegate {
     weak var coordinator: SceneCoordinator?
     let preferredScaleMode: SKSceneScaleMode = .resizeFill
 
@@ -13,6 +13,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var killTriggers: [CGRect] = []
     private var cameraBounds: [CGRect] = []
     private var levelBounds: [CGRect] = []
+    private var hazardNodes: [SKNode] = []
     private let cameraController = CameraController()
 
     private let debugNode = SKNode()
@@ -27,10 +28,6 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var isRestarting = false
 
-    var playerCollisions: [CGRect] {
-        collisions
-    }
-
     override init(size: CGSize) {
         mapLoader = try! TiledMapLoader(mapName: "level")
         super.init(size: size)
@@ -44,6 +41,7 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
     override func didMove(to view: SKView) {
         super.didMove(to: view)
         physicsWorld.gravity = .zero
+        physicsWorld.contactDelegate = self
         buildScene()
         applyViewportLayout()
         setupFadeOverlay()
@@ -92,6 +90,10 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         killTriggers = mapLoader.rectangles(ofType: "KillTrigger", in: "KillTriggers")
         cameraBounds = mapLoader.rectangles(ofType: "CameraBounds", in: "Bounds")
         levelBounds = mapLoader.rectangles(ofType: "Boundary", in: "Bounds")
+
+        hazardNodes.forEach { $0.removeFromParent() }
+        hazardNodes.removeAll()
+        addHazardNodes()
 
         cameraController.resetBounds(cameraBounds)
 
@@ -160,7 +162,6 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         player.update(deltaTime: deltaTime)
         updateCamera(deltaTime: deltaTime)
         updateDebugOverlays()
-        checkHazards()
     }
 
     private func updateDebugOverlays() {
@@ -194,12 +195,36 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         }
     }
 
-    private func checkHazards() {
-        guard !isRestarting else { return }
+    private func addHazardNodes() {
+        for rect in killTriggers {
+            let node = SKNode()
+            node.position = CGPoint(x: rect.midX, y: rect.midY)
+            let body = SKPhysicsBody(rectangleOf: rect.size)
+            body.isDynamic = false
+            body.affectedByGravity = false
+            body.categoryBitMask = PhysicsCategory.hazard
+            body.collisionBitMask = PhysicsCategory.none
+            body.contactTestBitMask = PhysicsCategory.player
+            node.physicsBody = body
+            hazardNodes.append(node)
+            worldNode.addChild(node)
+        }
+    }
 
-        let playerRect = player.hitbox
-        if killTriggers.contains(where: { $0.intersects(playerRect) }) {
-            restartWithFade()
+    func didBegin(_ contact: SKPhysicsContact) {
+        if contact.bodyA.categoryBitMask & PhysicsCategory.player != 0 {
+            player.handleContactBegan(with: contact.bodyB)
+        } else if contact.bodyB.categoryBitMask & PhysicsCategory.player != 0 {
+            player.handleContactBegan(with: contact.bodyA)
+        }
+    }
+
+    private func respawn() {
+        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
+            player.position = mapLoader.position(for: spawn)
+            player.resetPhysicsState()
+            setupCamera()
+            updateCamera(deltaTime: 0)
         }
     }
 
@@ -217,12 +242,11 @@ final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding {
         }
     }
 
-    private func respawn() {
-        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
-            player.position = mapLoader.position(for: spawn)
-            player.velocity = .zero
-            setupCamera()
-            updateCamera(deltaTime: 0)
-        }
+    func handlePlayerHazardContact() {
+        restartWithFade()
+    }
+
+    var playerCollisions: [CGRect] {
+        collisions
     }
 }

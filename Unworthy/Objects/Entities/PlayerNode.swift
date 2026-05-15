@@ -17,7 +17,6 @@ final class PlayerNode: SKSpriteNode {
     private var attackComboTimer: TimeInterval = 0
     private var attackCooldown: TimeInterval = 0.2
     private var attackCooldownTimer: TimeInterval = 0
-    private var pendingAttackEnd = false
     private var attackEffectOffset = CGVector(dx: 130, dy: 105)
     private var idleAnimationTimer: TimeInterval = 0
 
@@ -58,6 +57,7 @@ final class PlayerNode: SKSpriteNode {
         attackEffectNode.zPosition = GameConstants.layerEntities + 0.01
         attackEffectNode.isHidden = true
         addChild(attackEffectNode)
+        configurePhysicsBody()
     }
 
     required init?(coder: NSCoder) {
@@ -87,21 +87,20 @@ final class PlayerNode: SKSpriteNode {
 
         updateFacingDirection(inputAxis: inputAxis)
 
-        velocity.dy -= GameConstants.gravity * gravityScale * GameConstants.pixelsPerUnit * dt
-        velocity.dy = min(max(velocity.dy, -maxFallSpeed), jumpForce)
+        let gravity = GameConstants.gravity * gravityScale * GameConstants.pixelsPerUnit
         let currentMoveSpeed = (pressedAttack || attacking) ? moveSpeedWhileAttacking : moveSpeed
+        velocity.dy -= gravity * dt
+        velocity.dy = min(max(velocity.dy, -maxFallSpeed), jumpForce)
         velocity.dx = inputAxis * currentMoveSpeed
 
         var newPosition = position
         newPosition.x += velocity.dx * dt
         newPosition.y += velocity.dy * dt
 
-        // Simple AABB collision resolve
         let playerRect = hitboxRect(at: newPosition)
         isGrounded = false
         for rect in collisions {
             if playerRect.intersects(rect) {
-                // Resolve only vertical first
                 if position.y >= rect.maxY {
                     newPosition.y = rect.maxY + size.height / 2
                     velocity.dy = 0
@@ -159,6 +158,7 @@ final class PlayerNode: SKSpriteNode {
         guard self.facingRight != facingRight else { return }
         self.facingRight = facingRight
         xScale = facingRight ? 1 : -1
+        configurePhysicsBody(preservingVelocity: true)
     }
 
     private func updateAnimationState(deltaTime: TimeInterval, deltaPosition: CGVector) {
@@ -256,6 +256,17 @@ final class PlayerNode: SKSpriteNode {
         }
     }
 
+    func handleContactBegan(with other: SKPhysicsBody) {
+        if other.categoryBitMask & PhysicsCategory.hazard != 0 {
+            levelScene?.handlePlayerHazardContact()
+        }
+    }
+
+    func resetPhysicsState() {
+        isGrounded = false
+        velocity = .zero
+    }
+
     var hitbox: CGRect {
         hitboxRect(at: position)
     }
@@ -266,5 +277,27 @@ final class PlayerNode: SKSpriteNode {
         let originX = position.x - size.width / 2 + offsetX
         let originY = position.y - size.height / 2
         return CGRect(x: originX, y: originY, width: hitboxWidth, height: hitboxHeight)
+    }
+
+    private func configurePhysicsBody(preservingVelocity: Bool = false) {
+        let currentVelocity = velocity
+        let leftOffset = size.width - hitboxOffsetRight - hitboxWidth
+        let offsetX = facingRight ? hitboxOffsetRight : leftOffset
+        let centerX = -size.width / 2 + offsetX + hitboxWidth / 2
+        let centerY = -size.height / 2 + hitboxHeight / 2
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: hitboxWidth, height: hitboxHeight), center: CGPoint(x: centerX, y: centerY))
+        body.isDynamic = true
+        body.affectedByGravity = false
+        body.allowsRotation = false
+        body.restitution = 0
+        body.friction = 0
+        body.linearDamping = 0
+        body.categoryBitMask = PhysicsCategory.player
+        body.collisionBitMask = PhysicsCategory.none
+        body.contactTestBitMask = PhysicsCategory.ground | PhysicsCategory.hazard
+        physicsBody = body
+        if preservingVelocity {
+            velocity = currentVelocity
+        }
     }
 }
