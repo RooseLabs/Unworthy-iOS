@@ -1,10 +1,7 @@
 import SpriteKit
 import CoreMotion
 
-final class LevelScene: BaseScene, CoordinatedScene, SceneScaleModeProviding, SKPhysicsContactDelegate {
-    weak var coordinator: SceneCoordinator?
-    let preferredScaleMode: SKSceneScaleMode = .resizeFill
-
+final class LevelScene: BaseScene {
     var inputState: LevelInputState?
 
     private let motionManager = CMMotionManager()

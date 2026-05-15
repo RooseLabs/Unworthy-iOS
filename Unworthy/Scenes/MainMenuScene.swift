@@ -1,9 +1,7 @@
 import SpriteKit
 import CoreMotion
 
-final class MainMenuScene: BaseScene, CoordinatedScene {
-    weak var coordinator: SceneCoordinator?
-
+final class MainMenuScene: BaseScene {
     private let motionManager = CMMotionManager()
 
     private let title = SKSpriteNode(texture: SKTexture(imageNamed: "title"))
@@ -21,6 +19,15 @@ final class MainMenuScene: BaseScene, CoordinatedScene {
     private let fadeNode = FadeNode(size: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var hasTriggeredLevelTransition = false
     private var hasStartedFadeOut = false
+
+    override init(size: CGSize) {
+        super.init(size: size)
+        scaleMode = .aspectFill
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func didMove(to view: SKView) {
         super.didMove(to: view)

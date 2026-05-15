@@ -1,17 +1,5 @@
 import SpriteKit
 
-protocol CoordinatedScene {
-    var coordinator: SceneCoordinator? { get set }
-}
-
-protocol SceneScaleModeProviding {
-    var preferredScaleMode: SKSceneScaleMode { get }
-}
-
-extension SceneScaleModeProviding {
-    var preferredScaleMode: SKSceneScaleMode { .aspectFill }
-}
-
 protocol SceneCoordinatorDelegate: AnyObject {
     func sceneCoordinator(_ coordinator: SceneCoordinator, willPresent scene: SKScene)
 }
@@ -41,10 +29,9 @@ final class SceneCoordinator {
     }
 
     private func present(scene: SKScene, transition: SKTransition = SKTransition.crossFade(withDuration: 0.5)) {
-        if var coordinated = scene as? CoordinatedScene {
-            coordinated.coordinator = self
+        if let baseScene = scene as? BaseScene {
+            baseScene.coordinator = self
         }
-        scene.scaleMode = (scene as? SceneScaleModeProviding)?.preferredScaleMode ?? .aspectFill
         delegate?.sceneCoordinator(self, willPresent: scene)
         view?.presentScene(scene, transition: transition)
     }

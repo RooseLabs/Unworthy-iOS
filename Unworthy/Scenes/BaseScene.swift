@@ -1,6 +1,7 @@
 import SpriteKit
 
-class BaseScene: SKScene {
+class BaseScene: SKScene, SKPhysicsContactDelegate {
+    weak var coordinator: SceneCoordinator?
     let worldNode = SKNode()
     let uiNode = SKNode()
     let cameraNode = SKCameraNode()
