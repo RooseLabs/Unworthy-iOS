@@ -21,9 +21,19 @@ final class LevelScene: BaseScene {
     private let vignette = VignetteNode()
     private let fadeNode = FadeNode(size: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var starsNodes: [StarsNode] = []
+    private var enemies: [FlyeNode] = []
+    private let hpIndicator = HPIndicatorNode()
+    private let statsCounter = StatsCounterNode()
+    private let pauseMenu = PauseMenuNode()
+    private var playerSpawnPosition: CGPoint = .zero
 
     private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var isRestarting = false
+    private var isFadeTransitionActive = false
+
+    override var canPause: Bool {
+        !isFadeTransitionActive
+    }
 
     override init(size: CGSize) {
         mapLoader = try! TiledMapLoader(mapName: "level")
@@ -39,10 +49,22 @@ final class LevelScene: BaseScene {
         super.didMove(to: view)
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
+        GameSession.shared.activeLevel = self
         buildScene()
         applyViewportLayout()
         setupFadeOverlay()
-        fadeNode.fadeIn(duration: 1.5)
+        isFadeTransitionActive = true
+        fadeNode.fadeIn(duration: 1.5) { [weak self] in
+            self?.isFadeTransitionActive = false
+        }
+    }
+
+    override func willMove(from view: SKView) {
+        flushSessionStats()
+        if GameSession.shared.activeLevel === self {
+            GameSession.shared.activeLevel = nil
+        }
+        super.willMove(from: view)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -51,10 +73,21 @@ final class LevelScene: BaseScene {
         setupFadeOverlay()
     }
 
+    override func pause() {
+        flushSessionStats()
+        pauseMenu.isHidden = false
+        super.pause()
+    }
+
+    override func resume() {
+        pauseMenu.isHidden = true
+        super.resume()
+    }
+
     private func buildScene() {
         backgroundColor = .black
         addMapLayers()
-        addPlayer()
+        addEntities()
         setupCamera()
 
         if GameConstants.debug {
@@ -64,6 +97,56 @@ final class LevelScene: BaseScene {
 
         uiNode.addChild(vignette)
         vignette.position = .zero
+
+        hpIndicator.zPosition = GameConstants.layerUI
+        uiNode.addChild(hpIndicator)
+        hpIndicator.update(health: player.health)
+        positionHPIndicator()
+
+        statsCounter.zPosition = GameConstants.layerUI
+        uiNode.addChild(statsCounter)
+        statsCounter.update(
+            kills: GameSession.shared.data.enemiesDefeated,
+            deaths: GameSession.shared.data.deaths
+        )
+        positionStatsCounter()
+
+        pauseMenu.onResume = { [weak self] in
+            guard let self else { return }
+            NotificationCenter.default.post(name: .levelDidRequestResume, object: self)
+        }
+        pauseMenu.onRestart = { [weak self] in
+            guard let self else { return }
+            NotificationCenter.default.post(name: .levelDidRequestResume, object: self)
+            self.restartWithFade()
+        }
+        pauseMenu.onReturnToMenu = { [weak self] in
+            self?.flushSessionStats()
+            self?.coordinator?.presentMainMenu()
+        }
+        uiNode.addChild(pauseMenu)
+        pauseMenu.resize(to: size)
+    }
+
+    private func positionHPIndicator() {
+        let scale = viewportMetrics.scale
+        hpIndicator.setScale(scale)
+        let margin: CGFloat = 0.05
+        hpIndicator.position = CGPoint(
+            x: -size.width / 2 + size.width * margin,
+            y: size.height / 2 - size.height * margin
+        )
+    }
+
+    private func positionStatsCounter() {
+        let scale = viewportMetrics.scale
+        statsCounter.setScale(scale)
+        let marginX: CGFloat = 0.1
+        let marginY: CGFloat = 0.005
+        statsCounter.position = CGPoint(
+            x: size.width / 2 - size.width * marginX,
+            y: size.height / 2 - size.height * marginY
+        )
     }
 
     private func setupFadeOverlay() {
@@ -78,6 +161,9 @@ final class LevelScene: BaseScene {
         viewportMetrics = ViewportMetrics(viewSize: size)
         worldNode.setScale(viewportMetrics.scale)
         vignette.resize(to: size)
+        positionHPIndicator()
+        positionStatsCounter()
+        pauseMenu.resize(to: size)
         updateCamera(deltaTime: 0)
     }
 
@@ -138,12 +224,25 @@ final class LevelScene: BaseScene {
             .map { mapLoader.rect(for: $0) }
     }
 
-    private func addPlayer() {
-        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
-            player.position = mapLoader.position(for: spawn)
+    private func addEntities() {
+        let entityObjects = mapLoader.objects(in: "Entities")
+        guard let spawn = entityObjects.first(where: { $0.type == "Player" }) else {
+            assertionFailure("LevelScene: no \"Player\" spawn found in Entities layer; objects=\(entityObjects.map(\.type))")
+            return
         }
+        playerSpawnPosition = mapLoader.position(for: spawn)
+        #if DEBUG
+        print("LevelScene: player spawn = \(playerSpawnPosition)")
+        #endif
+        player.setSpawnPosition(playerSpawnPosition)
         player.levelScene = self
         worldNode.addChild(player)
+
+        for entity in entityObjects where entity.type == "Flye" {
+            let flye = FlyeNode(spawnPosition: mapLoader.position(for: entity), level: self)
+            worldNode.addChild(flye)
+            enemies.append(flye)
+        }
     }
 
     private func setupCamera() {
@@ -157,8 +256,60 @@ final class LevelScene: BaseScene {
             stars.update(deltaTime: deltaTime)
         }
         player.update(deltaTime: deltaTime)
+        for enemy in enemies {
+            enemy.update(deltaTime: deltaTime, player: player)
+        }
         updateCamera(deltaTime: deltaTime)
+        hpIndicator.update(health: max(player.health, 0))
+        statsCounter.update(
+            kills: GameSession.shared.data.enemiesDefeated + player.killCount,
+            deaths: GameSession.shared.data.deaths + player.deathCount
+        )
         updateDebugOverlays()
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if !pauseMenu.isHidden, let touch = touches.first {
+            _ = pauseMenu.handleTouchBegan(scenePoint: touch.location(in: self))
+            return
+        }
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if !pauseMenu.isHidden, let touch = touches.first {
+            pauseMenu.handleTouchMoved(scenePoint: touch.location(in: self))
+            return
+        }
+        super.touchesMoved(touches, with: event)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if !pauseMenu.isHidden, let touch = touches.first {
+            pauseMenu.handleTouchEnded(scenePoint: touch.location(in: self))
+            return
+        }
+        super.touchesEnded(touches, with: event)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if !pauseMenu.isHidden {
+            pauseMenu.handleTouchCancelled()
+            return
+        }
+        super.touchesCancelled(touches, with: event)
+    }
+
+    func flushSessionStats() {
+        let kills = player.killCount
+        let deaths = player.deathCount
+        GameSession.shared.recordSession(kills: kills, deaths: deaths)
+        player.killCount = 0
+        player.deathCount = 0
+        statsCounter.update(
+            kills: GameSession.shared.data.enemiesDefeated,
+            deaths: GameSession.shared.data.deaths
+        )
     }
 
     private func updateDebugOverlays() {
@@ -217,17 +368,21 @@ final class LevelScene: BaseScene {
     }
 
     private func respawn() {
-        if let spawn = mapLoader.objects(in: "Entities").first(where: { $0.type == "Player" }) {
-            player.position = mapLoader.position(for: spawn)
-            player.resetPhysicsState()
-            setupCamera()
-            updateCamera(deltaTime: 0)
+        player.reset()
+        player.setSpawnPosition(playerSpawnPosition, resetPhysics: false)
+        for enemy in enemies {
+            enemy.reset()
         }
+        hpIndicator.update(health: player.health)
+        setupCamera()
+        updateCamera(deltaTime: 0)
     }
 
-    private func restartWithFade() {
+    func restartWithFade() {
         guard !isRestarting else { return }
         isRestarting = true
+        isFadeTransitionActive = true
+        flushSessionStats()
 
         vignette.flash(to: .red, duration: 0.25)
         fadeNode.fadeOut(duration: 1.5) { [weak self] in
@@ -235,8 +390,13 @@ final class LevelScene: BaseScene {
             self.respawn()
             self.fadeNode.fadeIn(duration: 1.5) { [weak self] in
                 self?.isRestarting = false
+                self?.isFadeTransitionActive = false
             }
         }
+    }
+
+    func flashVignetteRed() {
+        vignette.flash(to: .red, duration: 0.25)
     }
 
     func handlePlayerHazardContact() {

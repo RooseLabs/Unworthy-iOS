@@ -1,6 +1,7 @@
 import SpriteKit
+import UIKit
 
-final class PlayerNode: SKSpriteNode {
+final class PlayerNode: SKSpriteNode, Entity {
     var velocity = CGVector(dx: 0, dy: 0)
     var isGrounded = false
     var maxFallSpeed: CGFloat = 6 * GameConstants.pixelsPerUnit
@@ -8,6 +9,13 @@ final class PlayerNode: SKSpriteNode {
     var moveSpeedWhileAttacking: CGFloat = 0.5 * GameConstants.pixelsPerUnit
     var jumpForce: CGFloat = 6.2 * GameConstants.pixelsPerUnit
     var gravityScale: CGFloat = 1.5
+
+    let isFriendly = true
+    var health: Int = 5
+    var killCount: Int = 0
+    var deathCount: Int = 0
+    private let invincibilityDuration: TimeInterval = 1.5
+    private var invincibilityTimer: TimeInterval = 0
 
     private var facingRight = true
     private var pressedAttack = false
@@ -19,6 +27,7 @@ final class PlayerNode: SKSpriteNode {
     private var attackCooldownTimer: TimeInterval = 0
     private var attackEffectOffset = CGVector(dx: 130, dy: 105)
     private var idleAnimationTimer: TimeInterval = 0
+    private lazy var feedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
 
     private let hitboxWidth: CGFloat = 77.55
     private let hitboxHeight: CGFloat = 305
@@ -65,6 +74,10 @@ final class PlayerNode: SKSpriteNode {
     }
 
     func update(deltaTime: TimeInterval) {
+        if isDead { return }
+        if invincibilityTimer > 0 {
+            invincibilityTimer = max(0, invincibilityTimer - deltaTime)
+        }
         let inputState = levelScene?.inputState
         let inputAxis = CGFloat(inputState?.movementAxis.dx ?? 0)
         let wantsJump = inputState?.consumeJumpRequest() ?? false
@@ -136,6 +149,27 @@ final class PlayerNode: SKSpriteNode {
         attackEffectAnimator?.play("attack", force: true) { [weak self] in
             self?.attackEffectNode.isHidden = true
         }
+
+        if let world = levelScene?.physicsWorld {
+            let rect = attackHitRectInScene()
+            world.enumerateBodies(in: rect) { [weak self] body, _ in
+                guard let self else { return }
+                guard body.categoryBitMask & PhysicsCategory.enemy != 0 else { return }
+                guard let enemy = body.node as? Entity, !enemy.isDead else { return }
+                enemy.takeDamage(source: self, amount: 1, impactForce: 0.75)
+            }
+        }
+    }
+
+    private func attackHitRectInScene() -> CGRect {
+        let scale: CGFloat = 0.9
+        let effectSize = attackEffectNode.size
+        let width = effectSize.width * scale
+        let height = effectSize.height * scale
+        let signedOffsetX = facingRight ? attackEffectOffset.dx : -attackEffectOffset.dx
+        let centerX = position.x + signedOffsetX
+        let centerY = position.y + attackEffectOffset.dy
+        return CGRect(x: centerX - width / 2, y: centerY - height / 2, width: width, height: height)
     }
 
     var isFacingRight: Bool {
@@ -163,6 +197,13 @@ final class PlayerNode: SKSpriteNode {
 
     private func updateAnimationState(deltaTime: TimeInterval, deltaPosition: CGVector) {
         guard let animator else { return }
+
+        let current = animator.currentAnimation
+        if current == "hurt" || current == "death" {
+            if current == "death" || !animator.isComplete {
+                return
+            }
+        }
 
         let isMovingHorizontally = abs(deltaPosition.dx) > 0.01
         let isMovingVertically = abs(deltaPosition.dy) > 0.01
@@ -267,6 +308,50 @@ final class PlayerNode: SKSpriteNode {
         velocity = .zero
     }
 
+    func setSpawnPosition(_ spawnPosition: CGPoint, resetPhysics: Bool = true) {
+        position = spawnPosition
+        lastPosition = spawnPosition
+        if resetPhysics {
+            resetPhysicsState()
+        }
+    }
+
+    func reset() {
+        resetPhysicsState()
+        health = 5
+        invincibilityTimer = 0
+        attackCooldownTimer = 0
+        attackComboTimer = 0
+        attacking = false
+        pressedAttack = false
+        lastAttackAnimation = ""
+        attackEffectNode.isHidden = true
+        if !facingRight {
+            setFacingDirection(true)
+        }
+        idleAnimationTimer = 0
+    }
+
+    func takeDamage(source: SKNode?, amount: Int, impactForce: CGFloat) {
+        guard invincibilityTimer <= 0, !isDead else { return }
+        health -= amount
+        invincibilityTimer = invincibilityDuration
+        feedbackGenerator.impactOccurred()
+        if isDead {
+            deathCount += 1
+            animator?.play("death", force: true) { [weak self] in
+                self?.levelScene?.restartWithFade()
+            }
+        } else {
+            levelScene?.flashVignetteRed()
+            animator?.play("hurt", force: true)
+        }
+    }
+
+    var entityBounds: CGRect {
+        hitboxRect(at: position)
+    }
+
     var hitbox: CGRect {
         hitboxRect(at: position)
     }
@@ -294,7 +379,7 @@ final class PlayerNode: SKSpriteNode {
         body.linearDamping = 0
         body.categoryBitMask = PhysicsCategory.player
         body.collisionBitMask = PhysicsCategory.none
-        body.contactTestBitMask = PhysicsCategory.ground | PhysicsCategory.hazard
+        body.contactTestBitMask = PhysicsCategory.hazard
         physicsBody = body
         if preservingVelocity {
             velocity = currentVelocity

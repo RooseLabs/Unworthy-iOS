@@ -22,8 +22,9 @@ class BaseScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
-        let delta = lastUpdateTime == 0 ? 0 : currentTime - lastUpdateTime
+        let rawDelta = lastUpdateTime == 0 ? 0 : currentTime - lastUpdateTime
         lastUpdateTime = currentTime
+        let delta = min(rawDelta, 1.0 / 30.0)
         update(deltaTime: delta)
     }
 
@@ -34,6 +35,10 @@ class BaseScene: SKScene, SKPhysicsContactDelegate {
     func resume() {
         lastUpdateTime = 0
         isPaused = false
+    }
+
+    var canPause: Bool {
+        true
     }
 
     func update(deltaTime: TimeInterval) {

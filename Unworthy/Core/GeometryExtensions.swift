@@ -19,6 +19,17 @@ extension CGPoint {
         return self / len
     }
 
+    func moveTowards(_ target: CGPoint, maxDistance: CGFloat) -> CGPoint {
+        let toX = target.x - x
+        let toY = target.y - y
+        let sqDist = toX * toX + toY * toY
+        if sqDist == 0 || (maxDistance >= 0 && sqDist <= maxDistance * maxDistance) {
+            return target
+        }
+        let dist = sqrt(sqDist)
+        return CGPoint(x: x + toX / dist * maxDistance, y: y + toY / dist * maxDistance)
+    }
+
     static func + (lhs: CGPoint, rhs: CGPoint) -> CGPoint {
         CGPoint(x: lhs.x + rhs.x, y: lhs.y + rhs.y)
     }

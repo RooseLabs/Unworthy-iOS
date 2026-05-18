@@ -1,16 +1,22 @@
 import UIKit
 import SpriteKit
 
+extension Notification.Name {
+    static let levelDidRequestResume = Notification.Name("LevelScene.didRequestResume")
+}
+
 class GameViewController: UIViewController {
     private var coordinator: SceneCoordinator?
     private let hudOverlayView = HUDView()
+    private let keyboardController = KeyboardController()
+    private var resumeObserver: NSObjectProtocol?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         guard let skView = view as? SKView else { return }
         skView.ignoresSiblingOrder = true
-        skView.showsFPS = true
-        skView.showsNodeCount = true
+        skView.showsFPS = GameConstants.debug
+        skView.showsNodeCount = GameConstants.debug
 
         hudOverlayView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hudOverlayView)
@@ -25,18 +31,47 @@ class GameViewController: UIViewController {
             self?.toggleScenePause()
         }
 
+        keyboardController.inputState = hudOverlayView.inputState
+        keyboardController.onPauseToggleRequested = { [weak self] in
+            guard let skView = self?.view as? SKView,
+                  skView.scene is LevelScene else { return }
+            self?.toggleScenePause()
+        }
+
+        resumeObserver = NotificationCenter.default.addObserver(
+            forName: .levelDidRequestResume,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self,
+                  let scene = (self.view as? SKView)?.scene,
+                  scene.isPaused else { return }
+            self.toggleScenePause()
+        }
+
         coordinator = SceneCoordinator(view: skView)
         coordinator?.delegate = self
         coordinator?.presentMainMenu()
     }
 
+    deinit {
+        if let observer = resumeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
     private func toggleScenePause() {
-        guard let skView = view as? SKView else { return }
-        guard let scene = skView.scene else { return }
-        if let baseScene = scene as? BaseScene {
-            scene.isPaused ? baseScene.resume() : baseScene.pause()
+        guard let skView = view as? SKView,
+              let scene = skView.scene as? BaseScene else { return }
+        if scene.isPaused {
+            scene.resume()
+            hudOverlayView.setGameplayControlsHidden(false)
+            keyboardController.isEnabled = (scene is LevelScene)
         } else {
-            scene.isPaused.toggle()
+            guard scene.canPause else { return }
+            scene.pause()
+            hudOverlayView.setGameplayControlsHidden(true)
+            keyboardController.isEnabled = false
         }
     }
 
@@ -54,8 +89,10 @@ extension GameViewController: SceneCoordinatorDelegate {
         if let levelScene = scene as? LevelScene {
             hudOverlayView.configureForLevel()
             levelScene.inputState = hudOverlayView.inputState
+            keyboardController.isEnabled = true
         } else {
             hudOverlayView.configureForMenu()
+            keyboardController.isEnabled = false
         }
     }
 }

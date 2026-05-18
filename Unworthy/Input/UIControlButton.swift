@@ -34,7 +34,7 @@ final class UIControlButton: UIControl {
             normalFill: UIColor.black.withAlphaComponent(0.25),
             pressedFill: UIColor.black.withAlphaComponent(0.25),
             normalTint: UIColor.white,
-            pressedTint: UIColor(red: 0xDD / 255.0, green: 0x10 / 255.0, blue: 0x0E / 255.0, alpha: 1.0)
+            pressedTint: UIColor(red: 0.87, green: 0.06, blue: 0.05, alpha: 1.0)
         )
     }
 

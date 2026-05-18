@@ -16,6 +16,7 @@ enum GameConstants {
     static let layerForeground: CGFloat = 0.7
     static let layerVignette: CGFloat = 0.8
     static let layerUI: CGFloat = 0.9
+    static let layerOverlay: CGFloat = 1.0
 
     static let debug: Bool = false
 }
@@ -25,4 +26,6 @@ enum PhysicsCategory {
     static let player: UInt32 = 1 << 0
     static let ground: UInt32 = 1 << 1
     static let hazard: UInt32 = 1 << 2
+    static let enemy: UInt32 = 1 << 3
+    static let playerAttack: UInt32 = 1 << 4
 }
