@@ -7,7 +7,7 @@ extension Notification.Name {
 
 class GameViewController: UIViewController {
     private var coordinator: SceneCoordinator?
-    private let hudOverlayView = HUDView()
+    private let touchControlsView = TouchControlsView()
     private let keyboardController = KeyboardController()
     private var resumeObserver: NSObjectProtocol?
 
@@ -18,24 +18,30 @@ class GameViewController: UIViewController {
         skView.showsFPS = GameConstants.debug
         skView.showsNodeCount = GameConstants.debug
 
-        hudOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(hudOverlayView)
+        touchControlsView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(touchControlsView)
         NSLayoutConstraint.activate([
-            hudOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hudOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hudOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
-            hudOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            touchControlsView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            touchControlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            touchControlsView.topAnchor.constraint(equalTo: view.topAnchor),
+            touchControlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        hudOverlayView.isHidden = true
-        hudOverlayView.onPauseRequested = { [weak self] in
+        touchControlsView.isHidden = true
+        touchControlsView.onPauseRequested = { [weak self] in
             self?.toggleScenePause()
         }
+        touchControlsView.onTouchInteraction = { [weak self] in
+            self?.activeLevelScene?.markTouchInteraction()
+        }
 
-        keyboardController.inputState = hudOverlayView.inputState
+        keyboardController.inputState = touchControlsView.inputState
         keyboardController.onPauseToggleRequested = { [weak self] in
             guard let skView = self?.view as? SKView,
                   skView.scene is LevelScene else { return }
             self?.toggleScenePause()
+        }
+        keyboardController.onKeyboardInteraction = { [weak self] in
+            self?.activeLevelScene?.markKeyboardInteraction()
         }
 
         resumeObserver = NotificationCenter.default.addObserver(
@@ -54,6 +60,20 @@ class GameViewController: UIViewController {
         coordinator?.presentMainMenu()
     }
 
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        propagateSafeAreaInsetsToScene()
+    }
+
+    private func propagateSafeAreaInsetsToScene() {
+        guard let scene = (view as? SKView)?.scene as? BaseScene else { return }
+        scene.safeAreaInsets = view.safeAreaInsets
+    }
+
+    private var activeLevelScene: LevelScene? {
+        (view as? SKView)?.scene as? LevelScene
+    }
+
     deinit {
         if let observer = resumeObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -65,12 +85,12 @@ class GameViewController: UIViewController {
               let scene = skView.scene as? BaseScene else { return }
         if scene.isPaused {
             scene.resume()
-            hudOverlayView.setGameplayControlsHidden(false)
+            touchControlsView.setGameplayControlsHidden(false)
             keyboardController.isEnabled = (scene is LevelScene)
         } else {
             guard scene.canPause else { return }
             scene.pause()
-            hudOverlayView.setGameplayControlsHidden(true)
+            touchControlsView.setGameplayControlsHidden(true)
             keyboardController.isEnabled = false
         }
     }
@@ -86,12 +106,19 @@ class GameViewController: UIViewController {
 
 extension GameViewController: SceneCoordinatorDelegate {
     func sceneCoordinator(_ coordinator: SceneCoordinator, willPresent scene: SKScene) {
+        if let baseScene = scene as? BaseScene {
+            baseScene.safeAreaInsets = view.safeAreaInsets
+        }
         if let levelScene = scene as? LevelScene {
-            hudOverlayView.configureForLevel()
-            levelScene.inputState = hudOverlayView.inputState
+            touchControlsView.configureForLevel()
+            levelScene.inputState = touchControlsView.inputState
+            levelScene.onTouchControlsAlphaChanged = { [weak self] alpha in
+                self?.touchControlsView.alpha = alpha
+            }
+            touchControlsView.alpha = 1
             keyboardController.isEnabled = true
         } else {
-            hudOverlayView.configureForMenu()
+            touchControlsView.configureForMenu()
             keyboardController.isEnabled = false
         }
     }

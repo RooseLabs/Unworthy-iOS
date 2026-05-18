@@ -1,10 +1,18 @@
 import SpriteKit
+import UIKit
 
 class BaseScene: SKScene, SKPhysicsContactDelegate {
     weak var coordinator: SceneCoordinator?
     let worldNode = SKNode()
     let uiNode = SKNode()
     let cameraNode = SKCameraNode()
+
+    var safeAreaInsets: UIEdgeInsets = .zero {
+        didSet {
+            guard oldValue != safeAreaInsets else { return }
+            safeAreaInsetsDidChange()
+        }
+    }
 
     private var lastUpdateTime: TimeInterval = 0
 
@@ -42,6 +50,10 @@ class BaseScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func update(deltaTime: TimeInterval) {
+        // To be overridden by subclasses
+    }
+
+    func safeAreaInsetsDidChange() {
         // To be overridden by subclasses
     }
 }

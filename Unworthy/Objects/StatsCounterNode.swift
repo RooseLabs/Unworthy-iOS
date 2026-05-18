@@ -8,7 +8,7 @@ final class StatsCounterNode: SKNode {
     override init() {
         super.init()
         label.fontName = FontLoader.getFont(fileName: "chiller.ttf") ?? "Helvetica-Bold"
-        label.fontSize = 64
+        label.fontSize = 128
         label.fontColor = .white
         label.horizontalAlignmentMode = .right
         label.verticalAlignmentMode = .top

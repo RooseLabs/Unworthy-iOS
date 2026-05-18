@@ -1,8 +1,9 @@
 import UIKit
 
-final class HUDView: UIView {
+final class TouchControlsView: UIView {
     let inputState = LevelInputState()
     var onPauseRequested: (() -> Void)?
+    var onTouchInteraction: (() -> Void)?
 
     private let analogControl = UIControlAnalog()
     private let attackButton = UIControlButton(
@@ -27,23 +28,28 @@ final class HUDView: UIView {
         addSubview(jumpButton)
         addSubview(pauseButton)
 
-        analogControl.onAxisChanged = { [weak inputState] axis in
-            inputState?.setMovementAxis(axis)
+        analogControl.onAxisChanged = { [weak self] axis in
+            self?.inputState.setMovementAxis(axis)
+            self?.onTouchInteraction?()
         }
 
-        jumpButton.onTouchDown = { [weak inputState] in
-            inputState?.requestJump()
+        jumpButton.onTouchDown = { [weak self] in
+            self?.inputState.requestJump()
+            self?.onTouchInteraction?()
         }
 
-        attackButton.onTouchDown = { [weak inputState] in
-            inputState?.requestAttack()
+        attackButton.onTouchDown = { [weak self] in
+            self?.inputState.requestAttack()
+            self?.onTouchInteraction?()
         }
 
-        attackButton.onTouchStateChanged = { [weak inputState] isPressed in
-            inputState?.setAttackPressed(isPressed)
+        attackButton.onTouchStateChanged = { [weak self] isPressed in
+            self?.inputState.setAttackPressed(isPressed)
+            if isPressed { self?.onTouchInteraction?() }
         }
 
         pauseButton.onTouchUpInside = { [weak self] in
+            self?.onTouchInteraction?()
             self?.onPauseRequested?()
         }
     }
@@ -58,16 +64,16 @@ final class HUDView: UIView {
         let safeRect = bounds.inset(by: safeAreaInsets)
         guard safeRect.width > 0, safeRect.height > 0 else { return }
 
-        let analogDiameter = safeRect.height * (600.0 / 2160.0)
-        let actionDiameter = safeRect.height * (350.0 / 2160.0)
-        let pauseDiameter = safeRect.height * (160.0 / 2160.0)
+        let analogDiameter = bounds.width * 0.175
+        let actionDiameter = bounds.width * 0.09
+        let pauseDiameter = bounds.width * 0.045
 
         analogControl.bounds = CGRect(x: 0, y: 0, width: analogDiameter, height: analogDiameter)
         attackButton.bounds = CGRect(x: 0, y: 0, width: actionDiameter, height: actionDiameter)
         jumpButton.bounds = CGRect(x: 0, y: 0, width: actionDiameter, height: actionDiameter)
         pauseButton.bounds = CGRect(x: 0, y: 0, width: pauseDiameter, height: pauseDiameter)
 
-        place(analogControl, anchorX: 0.15, anchorY: 0.225, in: safeRect)
+        place(analogControl, anchorX: 0.12, anchorY: 0.20, in: safeRect)
         place(attackButton, anchorX: 0.825, anchorY: 0.155, in: safeRect)
         place(jumpButton, anchorX: 0.925, anchorY: 0.275, in: safeRect)
         place(pauseButton, anchorX: 0.95, anchorY: 0.925, in: safeRect)

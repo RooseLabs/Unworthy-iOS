@@ -5,6 +5,7 @@ import GameController
 final class KeyboardController {
     weak var inputState: LevelInputState?
     var onPauseToggleRequested: (() -> Void)?
+    var onKeyboardInteraction: (() -> Void)?
 
     var isEnabled = false {
         didSet { if !isEnabled { reset() } }
@@ -43,7 +44,10 @@ final class KeyboardController {
 
     private func handle(keyCode: GCKeyCode, pressed: Bool) {
         if keyCode == .escape {
-            if pressed { onPauseToggleRequested?() }
+            if pressed {
+                onKeyboardInteraction?()
+                onPauseToggleRequested?()
+            }
             return
         }
         guard isEnabled else { return }
@@ -51,13 +55,21 @@ final class KeyboardController {
         case .keyA, .leftArrow:
             leftPressed = pressed
             pushAxis()
+            if pressed { onKeyboardInteraction?() }
         case .keyD, .rightArrow:
             rightPressed = pressed
             pushAxis()
+            if pressed { onKeyboardInteraction?() }
         case .spacebar:
-            if pressed { inputState?.requestJump() }
+            if pressed {
+                inputState?.requestJump()
+                onKeyboardInteraction?()
+            }
         case .keyJ, .keyZ:
-            if pressed { inputState?.requestAttack() }
+            if pressed {
+                inputState?.requestAttack()
+                onKeyboardInteraction?()
+            }
         default:
             break
         }

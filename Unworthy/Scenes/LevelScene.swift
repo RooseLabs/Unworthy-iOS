@@ -3,6 +3,7 @@ import CoreMotion
 
 final class LevelScene: BaseScene {
     var inputState: LevelInputState?
+    var onTouchControlsAlphaChanged: ((CGFloat) -> Void)?
 
     private let motionManager = CMMotionManager()
     private let mapLoader: TiledMapLoader
@@ -21,15 +22,22 @@ final class LevelScene: BaseScene {
     private let vignette = VignetteNode()
     private let fadeNode = FadeNode(size: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var starsNodes: [StarsNode] = []
-    private var enemies: [FlyeNode] = []
-    private let hpIndicator = HPIndicatorNode()
-    private let statsCounter = StatsCounterNode()
+    private(set) var enemies: [FlyeNode] = []
+    private let hudNode = HUDNode()
     private let pauseMenu = PauseMenuNode()
     private var playerSpawnPosition: CGPoint = .zero
 
     private var viewportMetrics = ViewportMetrics(viewSize: CGSize(width: GameConstants.targetWidth, height: GameConstants.targetHeight))
     private var isRestarting = false
     private var isFadeTransitionActive = false
+
+    private let idleFadeDelay: TimeInterval = 10
+    private let idleFadeSpeed: CGFloat = 1.5
+    private var timeSinceLastInputAny: TimeInterval = 0
+    private var timeSinceLastTouch: TimeInterval = 0
+    private var hudAlpha: CGFloat = 1
+    private var touchControlsAlpha: CGFloat = 1
+    private var inputMode: InputMode = .touch
 
     override var canPause: Bool {
         !isFadeTransitionActive
@@ -82,6 +90,7 @@ final class LevelScene: BaseScene {
     override func resume() {
         pauseMenu.isHidden = true
         super.resume()
+        markTouchInteraction()
     }
 
     private func buildScene() {
@@ -98,18 +107,14 @@ final class LevelScene: BaseScene {
         uiNode.addChild(vignette)
         vignette.position = .zero
 
-        hpIndicator.zPosition = GameConstants.layerUI
-        uiNode.addChild(hpIndicator)
-        hpIndicator.update(health: player.health)
-        positionHPIndicator()
-
-        statsCounter.zPosition = GameConstants.layerUI
-        uiNode.addChild(statsCounter)
-        statsCounter.update(
+        hudNode.zPosition = GameConstants.layerUI
+        uiNode.addChild(hudNode)
+        hudNode.hpIndicator.update(health: player.health)
+        hudNode.statsCounter.update(
             kills: GameSession.shared.data.enemiesDefeated,
             deaths: GameSession.shared.data.deaths
         )
-        positionStatsCounter()
+        layoutHUD()
 
         pauseMenu.onResume = { [weak self] in
             guard let self else { return }
@@ -128,25 +133,8 @@ final class LevelScene: BaseScene {
         pauseMenu.resize(to: size)
     }
 
-    private func positionHPIndicator() {
-        let scale = viewportMetrics.scale
-        hpIndicator.setScale(scale)
-        let margin: CGFloat = 0.05
-        hpIndicator.position = CGPoint(
-            x: -size.width / 2 + size.width * margin,
-            y: size.height / 2 - size.height * margin
-        )
-    }
-
-    private func positionStatsCounter() {
-        let scale = viewportMetrics.scale
-        statsCounter.setScale(scale)
-        let marginX: CGFloat = 0.1
-        let marginY: CGFloat = 0.005
-        statsCounter.position = CGPoint(
-            x: size.width / 2 - size.width * marginX,
-            y: size.height / 2 - size.height * marginY
-        )
+    private func layoutHUD() {
+        hudNode.layout(sceneSize: size, safeInsets: safeAreaInsets, scale: viewportMetrics.scale)
     }
 
     private func setupFadeOverlay() {
@@ -161,10 +149,14 @@ final class LevelScene: BaseScene {
         viewportMetrics = ViewportMetrics(viewSize: size)
         worldNode.setScale(viewportMetrics.scale)
         vignette.resize(to: size)
-        positionHPIndicator()
-        positionStatsCounter()
+        layoutHUD()
         pauseMenu.resize(to: size)
         updateCamera(deltaTime: 0)
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        layoutHUD()
     }
 
     private func addMapLayers() {
@@ -260,15 +252,72 @@ final class LevelScene: BaseScene {
             enemy.update(deltaTime: deltaTime, player: player)
         }
         updateCamera(deltaTime: deltaTime)
-        hpIndicator.update(health: max(player.health, 0))
-        statsCounter.update(
+        hudNode.hpIndicator.update(health: max(player.health, 0))
+        hudNode.statsCounter.update(
             kills: GameSession.shared.data.enemiesDefeated + player.killCount,
             deaths: GameSession.shared.data.deaths + player.deathCount
         )
         updateDebugOverlays()
+        updateHUDFade(deltaTime: deltaTime)
+    }
+
+    private func updateHUDFade(deltaTime: TimeInterval) {
+        guard !isFadeTransitionActive else { return }
+
+        if timeSinceLastInputAny >= idleFadeDelay {
+            let next = hudAlpha - idleFadeSpeed * CGFloat(deltaTime)
+            hudAlpha = max(0, next)
+            hudNode.alpha = hudAlpha
+        } else {
+            timeSinceLastInputAny += deltaTime
+        }
+
+        if timeSinceLastTouch >= idleFadeDelay {
+            let next = touchControlsAlpha - idleFadeSpeed * CGFloat(deltaTime)
+            touchControlsAlpha = max(0, next)
+            onTouchControlsAlphaChanged?(touchControlsAlpha)
+        } else {
+            timeSinceLastTouch += deltaTime
+        }
+    }
+
+    func markTouchInteraction() {
+        inputMode = .touch
+        timeSinceLastInputAny = 0
+        timeSinceLastTouch = 0
+        wakeHUD()
+        wakeTouchControls()
+    }
+
+    func markKeyboardInteraction() {
+        inputMode = .keyboard
+        timeSinceLastInputAny = 0
+        wakeHUD()
+    }
+
+    func markHUDActivity() {
+        timeSinceLastInputAny = 0
+        wakeHUD()
+        if inputMode == .touch {
+            timeSinceLastTouch = 0
+            wakeTouchControls()
+        }
+    }
+
+    private func wakeHUD() {
+        guard hudAlpha != 1 else { return }
+        hudAlpha = 1
+        hudNode.alpha = 1
+    }
+
+    private func wakeTouchControls() {
+        guard touchControlsAlpha != 1 else { return }
+        touchControlsAlpha = 1
+        onTouchControlsAlphaChanged?(1)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        markTouchInteraction()
         if !pauseMenu.isHidden, let touch = touches.first {
             _ = pauseMenu.handleTouchBegan(scenePoint: touch.location(in: self))
             return
@@ -306,7 +355,7 @@ final class LevelScene: BaseScene {
         GameSession.shared.recordSession(kills: kills, deaths: deaths)
         player.killCount = 0
         player.deathCount = 0
-        statsCounter.update(
+        hudNode.statsCounter.update(
             kills: GameSession.shared.data.enemiesDefeated,
             deaths: GameSession.shared.data.deaths
         )
@@ -373,7 +422,7 @@ final class LevelScene: BaseScene {
         for enemy in enemies {
             enemy.reset()
         }
-        hpIndicator.update(health: player.health)
+        hudNode.hpIndicator.update(health: player.health)
         setupCamera()
         updateCamera(deltaTime: 0)
     }

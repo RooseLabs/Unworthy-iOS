@@ -99,6 +99,12 @@ final class SpriteAnimator {
         self.library = library
     }
 
+    func reset() {
+        node?.removeAction(forKey: "animation")
+        currentAnimation = nil
+        isComplete = false
+    }
+
     func play(_ name: String, force: Bool = false, completion: (() -> Void)? = nil) {
         guard let node else { return }
         let hasRunningAction = node.action(forKey: "animation") != nil

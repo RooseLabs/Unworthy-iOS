@@ -150,12 +150,9 @@ final class PlayerNode: SKSpriteNode, Entity {
             self?.attackEffectNode.isHidden = true
         }
 
-        if let world = levelScene?.physicsWorld {
+        if let enemies = levelScene?.enemies {
             let rect = attackHitRectInScene()
-            world.enumerateBodies(in: rect) { [weak self] body, _ in
-                guard let self else { return }
-                guard body.categoryBitMask & PhysicsCategory.enemy != 0 else { return }
-                guard let enemy = body.node as? Entity, !enemy.isDead else { return }
+            for enemy in enemies where !enemy.isDead && enemy.entityBounds.intersects(rect) {
                 enemy.takeDamage(source: self, amount: 1, impactForce: 0.75)
             }
         }
@@ -199,10 +196,8 @@ final class PlayerNode: SKSpriteNode, Entity {
         guard let animator else { return }
 
         let current = animator.currentAnimation
-        if current == "hurt" || current == "death" {
-            if current == "death" || !animator.isComplete {
-                return
-            }
+        if (current == "hurt" || current == "death") && !animator.isComplete {
+            return
         }
 
         let isMovingHorizontally = abs(deltaPosition.dx) > 0.01
@@ -330,9 +325,12 @@ final class PlayerNode: SKSpriteNode, Entity {
             setFacingDirection(true)
         }
         idleAnimationTimer = 0
+        animator?.reset()
+        texture = SKTexture(imageNamed: "Player1")
     }
 
     func takeDamage(source: SKNode?, amount: Int, impactForce: CGFloat) {
+        levelScene?.markHUDActivity()
         guard invincibilityTimer <= 0, !isDead else { return }
         health -= amount
         invincibilityTimer = invincibilityDuration
