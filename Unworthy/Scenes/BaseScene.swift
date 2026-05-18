@@ -27,6 +27,15 @@ class BaseScene: SKScene, SKPhysicsContactDelegate {
         update(deltaTime: delta)
     }
 
+    func pause() {
+        isPaused = true
+    }
+
+    func resume() {
+        lastUpdateTime = 0
+        isPaused = false
+    }
+
     func update(deltaTime: TimeInterval) {
         // To be overridden by subclasses
     }

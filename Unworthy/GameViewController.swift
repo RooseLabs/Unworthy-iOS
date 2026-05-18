@@ -33,7 +33,11 @@ class GameViewController: UIViewController {
     private func toggleScenePause() {
         guard let skView = view as? SKView else { return }
         guard let scene = skView.scene else { return }
-        scene.isPaused.toggle()
+        if let baseScene = scene as? BaseScene {
+            scene.isPaused ? baseScene.resume() : baseScene.pause()
+        } else {
+            scene.isPaused.toggle()
+        }
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {

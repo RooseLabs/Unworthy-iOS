@@ -58,7 +58,6 @@ final class HUDView: UIView {
         let safeRect = bounds.inset(by: safeAreaInsets)
         guard safeRect.width > 0, safeRect.height > 0 else { return }
 
-        // Match Android HUD constants against 2160 target-height units.
         let analogDiameter = safeRect.height * (600.0 / 2160.0)
         let actionDiameter = safeRect.height * (350.0 / 2160.0)
         let pauseDiameter = safeRect.height * (160.0 / 2160.0)
