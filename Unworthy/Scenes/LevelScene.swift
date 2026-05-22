@@ -223,9 +223,6 @@ final class LevelScene: BaseScene {
             return
         }
         playerSpawnPosition = mapLoader.position(for: spawn)
-        #if DEBUG
-        print("LevelScene: player spawn = \(playerSpawnPosition)")
-        #endif
         player.setSpawnPosition(playerSpawnPosition)
         player.levelScene = self
         worldNode.addChild(player)

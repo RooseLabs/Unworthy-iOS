@@ -85,12 +85,12 @@ class GameViewController: UIViewController {
               let scene = skView.scene as? BaseScene else { return }
         if scene.isPaused {
             scene.resume()
-            touchControlsView.setGameplayControlsHidden(false)
+            touchControlsView.configureForLevel()
             keyboardController.isEnabled = (scene is LevelScene)
         } else {
             guard scene.canPause else { return }
             scene.pause()
-            touchControlsView.setGameplayControlsHidden(true)
+            touchControlsView.configureForMenu()
             keyboardController.isEnabled = false
         }
     }

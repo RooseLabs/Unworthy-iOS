@@ -92,7 +92,6 @@ final class TouchControlsView: UIView {
 
     func configureForLevel() {
         isHidden = false
-        setGameplayControlsHidden(false)
         analogControl.reset()
         inputState.setMovementAxis(.zero)
         inputState.setAttackPressed(false)
@@ -102,25 +101,11 @@ final class TouchControlsView: UIView {
 
     func configureForMenu() {
         isHidden = true
-        setGameplayControlsHidden(false)
         analogControl.reset()
         inputState.setMovementAxis(.zero)
         inputState.setAttackPressed(false)
         _ = inputState.consumeJumpRequest()
         _ = inputState.consumeAttackRequest()
-    }
-
-    func setGameplayControlsHidden(_ hidden: Bool) {
-        analogControl.isHidden = hidden
-        attackButton.isHidden = hidden
-        jumpButton.isHidden = hidden
-        if hidden {
-            analogControl.reset()
-            inputState.setMovementAxis(.zero)
-            inputState.setAttackPressed(false)
-            _ = inputState.consumeJumpRequest()
-            _ = inputState.consumeAttackRequest()
-        }
     }
 
     private func place(_ view: UIView, anchorX: CGFloat, anchorY: CGFloat, in safeRect: CGRect) {

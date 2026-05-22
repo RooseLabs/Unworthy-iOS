@@ -60,7 +60,7 @@ final class KeyboardController {
             rightPressed = pressed
             pushAxis()
             if pressed { onKeyboardInteraction?() }
-        case .spacebar:
+        case .spacebar, .upArrow, .keyX, .keyW:
             if pressed {
                 inputState?.requestJump()
                 onKeyboardInteraction?()
