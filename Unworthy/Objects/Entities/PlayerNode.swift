@@ -193,6 +193,10 @@ final class PlayerNode: SKSpriteNode, Entity {
 
         let current = animator.currentAnimation
         if (current == "hurt" || current == "death") && !animator.isComplete {
+            // Hurt/death owns the body, so the attack body animation (and its
+            // completion callback that clears isAttacking) can't run. Clear the
+            // flag here so an attack pressed mid-hurt can't leave it stuck true.
+            isAttacking = false
             return
         }
 
@@ -291,6 +295,8 @@ final class PlayerNode: SKSpriteNode, Entity {
     func handleContactBegan(with other: SKPhysicsBody) {
         if other.categoryBitMask & PhysicsCategory.hazard != 0 {
             levelScene?.handlePlayerHazardContact()
+        } else if other.categoryBitMask & PhysicsCategory.enemy != 0 {
+            takeDamage(source: other.node, amount: 1, impactForce: 0)
         }
     }
 
@@ -332,13 +338,13 @@ final class PlayerNode: SKSpriteNode, Entity {
         invincibilityTimer = invincibilityDuration
         isAttacking = false
         feedbackGenerator.impactOccurred()
+        levelScene?.flashVignetteRed()
         if isDead {
             deathCount += 1
             animator?.play("death", force: true) { [weak self] in
                 self?.levelScene?.restartWithFade()
             }
         } else {
-            levelScene?.flashVignetteRed()
             animator?.play("hurt", force: true)
         }
     }

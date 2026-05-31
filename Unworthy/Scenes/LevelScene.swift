@@ -450,7 +450,6 @@ final class LevelScene: BaseScene {
         isFadeTransitionActive = true
         flushSessionStats()
 
-        vignette.flash(to: .red, duration: 0.25)
         fadeNode.fadeOut(duration: 1.5) { [weak self] in
             guard let self else { return }
             self.respawn()

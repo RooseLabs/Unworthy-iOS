@@ -7,15 +7,26 @@ final class FlyeNode: SKSpriteNode, Entity {
     private let normalSpeed: CGFloat = 2.25
     private let pursuitSpeed: CGFloat = 2.5
     private let dashSpeed: CGFloat = 4.0
+    private let verticalBiasRate: CGFloat = 4
 
     private let attackDelay: TimeInterval = 2.0
     private var attackTimer: TimeInterval = 0
+    private var isAttacking = false
 
     private let staggerDuration: TimeInterval = 0.5
     private var staggerTimer: TimeInterval = 0
 
+    // Abrupt knockback, used when the player hits the Flye.
     private let knockbackSpeed: CGFloat = 10
     private var knockbackTarget: CGPoint?
+
+    // Smooth, eased recoil, triggered whenever the Flye touches the player.
+    private let recoilDuration: TimeInterval = 0.5
+    private let contactRecoilDistance: CGFloat = 330
+    private var recoilStart: CGPoint = .zero
+    private var recoilEnd: CGPoint = .zero
+    private var recoilElapsed: TimeInterval = 0
+    private var isRecoiling = false
 
     private var isPatrolling = false
     private var canPatrol = true
@@ -111,6 +122,11 @@ final class FlyeNode: SKSpriteNode, Entity {
             return
         }
 
+        if isRecoiling {
+            updateRecoil(deltaTime: deltaTime)
+            return
+        }
+
         if staggerTimer > 0 {
             staggerTimer -= deltaTime
             return
@@ -118,11 +134,6 @@ final class FlyeNode: SKSpriteNode, Entity {
 
         if attackTimer > 0 {
             attackTimer -= deltaTime
-        }
-
-        if !player.isDead && entityBounds.intersects(player.entityBounds) {
-            player.takeDamage(source: self, amount: 1, impactForce: 0)
-            applyPenetrationPush(against: player.entityBounds)
         }
 
         let previousPosition = position
@@ -144,8 +155,20 @@ final class FlyeNode: SKSpriteNode, Entity {
             }
         }
 
-        let delta = CGVector(dx: position.x - previousPosition.x, dy: position.y - previousPosition.y)
-        updateFacingDirection(delta: delta)
+        // Recoil away on every contact with the player (the hit itself is dealt by
+        // the SKPhysicsContact → LevelScene.didBegin → PlayerNode.handleContactBegan).
+        if !player.isDead,
+           circleOverlapsRect(center: position, radius: hitboxRadius, rect: player.entityBounds) {
+            beginContactRecoil(from: player)
+        }
+
+        if isInPursuit {
+            guideAboveFloor(player, deltaTime: deltaTime)
+            faceToward(player.position)
+        } else {
+            let delta = CGVector(dx: position.x - previousPosition.x, dy: position.y - previousPosition.y)
+            updateFacingDirection(delta: delta)
+        }
         lastPosition = position
     }
 
@@ -179,10 +202,43 @@ final class FlyeNode: SKSpriteNode, Entity {
         }
     }
 
+    /// Lowest Y the Flye should settle at: the player's origin, which sits roughly
+    /// at the player's middle.
+    private func floorY(below player: PlayerNode) -> CGFloat {
+        player.position.y
+    }
+
+    /// Smoothly biases the Flye up toward the floor line while engaged, rather than
+    /// hard-clamping it — eases a fraction of the remaining gap each frame.
+    private func guideAboveFloor(_ player: PlayerNode, deltaTime: TimeInterval) {
+        let floor = floorY(below: player)
+        guard position.y < floor else { return }
+        let t = 1 - CGFloat(exp(-Double(verticalBiasRate) * deltaTime))
+        position = CGPoint(x: position.x, y: position.y + (floor - position.y) * t)
+    }
+
+    /// Eased recoil away from the player on contact — gentler than the abrupt
+    /// `knockbackTarget` used when the player strikes the Flye.
+    private func updateRecoil(deltaTime: TimeInterval) {
+        recoilElapsed += deltaTime
+        let p = min(1, CGFloat(recoilElapsed / recoilDuration))
+        let eased = p * p * (3 - 2 * p) // smoothstep (ease-in-out)
+        position = recoilStart.lerp(to: recoilEnd, t: eased)
+        if p >= 1 {
+            isRecoiling = false
+        }
+    }
+
     private func checkForPlayer(deltaTime: TimeInterval, player: PlayerNode) {
         if player.isDead {
             isInPursuit = false
             canPatrol = true
+            return
+        }
+
+        // Once a lunge is committed, see it through regardless of sight/range.
+        if isAttacking {
+            continueAttack(player: player, deltaTime: deltaTime)
             return
         }
 
@@ -199,12 +255,12 @@ final class FlyeNode: SKSpriteNode, Entity {
                 animator?.play("alert") { [weak self] in
                     self?.isInPursuit = true
                 }
+            } else if attackTimer <= 0 && attackRangeOverlaps(rect: playerBox) {
+                beginAttack(player: player, deltaTime: deltaTime)
             } else {
-                if attackTimer <= 0 && attackRangeOverlaps(rect: playerBox) {
-                    attack(targetPosition: player.position, deltaTime: deltaTime)
-                } else {
-                    moveTo(destination: player.position, speed: pursuitSpeed * CGFloat(deltaTime))
-                }
+                // Closing in, or recovering between attacks: pursue the player.
+                // Touching is handled by the recoil-on-contact in update().
+                moveTo(destination: player.position, speed: pursuitSpeed * CGFloat(deltaTime))
             }
             return
         }
@@ -230,14 +286,44 @@ final class FlyeNode: SKSpriteNode, Entity {
         }
     }
 
-    private func attack(targetPosition: CGPoint, deltaTime: TimeInterval) {
+    private func beginAttack(player: PlayerNode, deltaTime: TimeInterval) {
+        isAttacking = true
+        continueAttack(player: player, deltaTime: deltaTime)
+    }
+
+    private func continueAttack(player: PlayerNode, deltaTime: TimeInterval) {
         position = position.moveTowards(
-            targetPosition,
+            player.position,
             maxDistance: dashSpeed * GameConstants.pixelsPerUnit * CGFloat(deltaTime)
         )
+        // A connecting lunge is closed out by beginContactRecoil; if it whiffs, end
+        // it (and start the cooldown) when the animation finishes.
         animator?.play("attack") { [weak self] in
-            guard let self else { return }
-            self.attackTimer = self.attackDelay
+            guard let self, self.isAttacking else { return }
+            self.endLunge()
+        }
+    }
+
+    private func endLunge() {
+        isAttacking = false
+        attackTimer = attackDelay
+    }
+
+    /// Recoil away from the player on contact, easing out smoothly. If this happens
+    /// mid-lunge, close out the lunge so the attack cooldown starts.
+    private func beginContactRecoil(from player: PlayerNode) {
+        let away = position - player.position
+        let direction = away.length() > 1 ? away.normalized() : CGPoint(x: facingRight ? 1 : -1, y: 0)
+        var end = position + direction * contactRecoilDistance
+        end.y = max(end.y, floorY(below: player))
+
+        recoilStart = position
+        recoilEnd = end
+        recoilElapsed = 0
+        isRecoiling = true
+
+        if isAttacking {
+            endLunge()
         }
     }
 
@@ -253,6 +339,14 @@ final class FlyeNode: SKSpriteNode, Entity {
         guard facingRight != right else { return }
         facingRight = right
         xScale = right ? 1 : -1
+    }
+
+    private func faceToward(_ point: CGPoint) {
+        if point.x < position.x {
+            setFacing(right: false)
+        } else if point.x > position.x {
+            setFacing(right: true)
+        }
     }
 
     private var sightCenter: CGPoint {
@@ -279,25 +373,11 @@ final class FlyeNode: SKSpriteNode, Entity {
         return dx * dx + dy * dy <= radius * radius
     }
 
-    private func applyPenetrationPush(against rect: CGRect) {
-        let closestX = max(rect.minX, min(position.x, rect.maxX))
-        let closestY = max(rect.minY, min(position.y, rect.maxY))
-        let dx = position.x - closestX
-        let dy = position.y - closestY
-        let distSq = dx * dx + dy * dy
-        guard distSq < hitboxRadius * hitboxRadius else { return }
-        if distSq == 0 {
-            position = CGPoint(x: position.x, y: position.y - hitboxRadius)
-            return
-        }
-        let dist = sqrt(distSq)
-        let overlap = hitboxRadius - dist
-        position = CGPoint(x: position.x + dx / dist * overlap, y: position.y + dy / dist * overlap)
-    }
-
     func takeDamage(source: SKNode?, amount: Int, impactForce: CGFloat) {
         guard !isDead else { return }
         health -= amount
+        isAttacking = false
+        isRecoiling = false
         color = .red
         colorBlendFactor = 1
         colorLerpTimer = 0
@@ -323,12 +403,14 @@ final class FlyeNode: SKSpriteNode, Entity {
         removeAllActions()
         position = startPosition
         lastPosition = startPosition
-        health = 4
+        health = 6
         isPatrolling = false
         canPatrol = true
         isInPursuit = false
         hasReachedPlayerLastKnownPosition = true
         attackTimer = 0
+        isAttacking = false
+        isRecoiling = false
         staggerTimer = 0
         knockbackTarget = nil
         colorBlendFactor = 0

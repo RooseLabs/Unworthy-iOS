@@ -64,7 +64,8 @@ final class TouchControlsView: UIView {
         let safeRect = bounds.inset(by: safeAreaInsets)
         guard safeRect.width > 0, safeRect.height > 0 else { return }
 
-        let unit = safeRect.height
+        let referenceAspect: CGFloat = GameConstants.targetWidth / GameConstants.targetHeight
+        let unit = (safeRect.width * safeRect.height / referenceAspect).squareRoot()
 
         let analogDiameter = unit * 0.311
         let actionDiameter = unit * 0.160
