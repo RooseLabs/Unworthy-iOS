@@ -29,11 +29,10 @@ final class HUDNode: SKNode {
             y: safeMaxY - safeHeight * 0.05
         )
 
-        let pauseAnchorX: CGFloat = 0.95
-        let statsGap: CGFloat = 0.04
+        let pauseAnchorX: CGFloat = 0.895
         let pauseAnchorY: CGFloat = 0.945
         statsCounter.position = CGPoint(
-            x: safeMinX + safeWidth * (pauseAnchorX - statsGap),
+            x: safeMinX + safeWidth * pauseAnchorX,
             y: safeMaxY - safeHeight * (1 - pauseAnchorY)
         )
     }

@@ -32,6 +32,10 @@ final class MainMenuScene: BaseScene {
     override func didMove(to view: SKView) {
         super.didMove(to: view)
         backgroundColor = .black
+        let aspect = view.bounds.height > 0
+            ? view.bounds.width / view.bounds.height
+            : GameConstants.targetWidth / GameConstants.targetHeight
+        size = CGSize(width: GameConstants.targetHeight * aspect, height: GameConstants.targetHeight)
         buildLayout()
         motionManager.startGyroUpdates()
         AssetProvider.Instance.playBackgroundMusic(named: "Midnight_Dreams")

@@ -32,6 +32,8 @@ final class PlayerNode: SKSpriteNode, Entity {
     private let hitboxWidth: CGFloat = 77.55
     private let hitboxHeight: CGFloat = 305
     private let hitboxOffsetRight: CGFloat = 93.09
+    private let anchorX: CGFloat = 131.84
+    private let anchorY: CGFloat = 152
 
     private let animationLibrary = try? AnimationLibrary.load(name: "player")
     private lazy var animator: SpriteAnimator? = {
@@ -53,7 +55,7 @@ final class PlayerNode: SKSpriteNode, Entity {
         let texture = SKTexture(imageNamed: "Player1")
         super.init(texture: texture, color: .white, size: texture.size())
         name = "Player"
-        anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        anchorPoint = CGPoint(x: anchorX / texture.size().width, y: anchorY / texture.size().height)
         zPosition = GameConstants.layerEntities
         lastPosition = position
 
@@ -82,7 +84,7 @@ final class PlayerNode: SKSpriteNode, Entity {
         let inputAxis = CGFloat(inputState?.movementAxis.dx ?? 0)
         let wantsJump = inputState?.consumeJumpRequest() ?? false
         let wantsAttack = inputState?.consumeAttackRequest() ?? false
-        let collisions = levelScene?.playerCollisions ?? []
+        let collisions = levelScene?.collisions ?? []
         let dt = CGFloat(deltaTime)
         if attackCooldownTimer > 0 {
             attackCooldownTimer = max(0, attackCooldownTimer - deltaTime)
@@ -115,11 +117,11 @@ final class PlayerNode: SKSpriteNode, Entity {
         for rect in collisions {
             if playerRect.intersects(rect) {
                 if position.y >= rect.maxY {
-                    newPosition.y = rect.maxY + size.height / 2
+                    newPosition.y = rect.maxY + anchorY
                     velocity.dy = 0
                     isGrounded = true
                 } else if position.y <= rect.minY {
-                    newPosition.y = rect.minY - (hitboxHeight - size.height / 2)
+                    newPosition.y = rect.minY - (hitboxHeight - anchorY)
                     velocity.dy = 0
                 }
             }
@@ -129,6 +131,9 @@ final class PlayerNode: SKSpriteNode, Entity {
             velocity.dy = jumpForce
             isGrounded = false
         }
+
+        clampToLevelExtent(position: &newPosition)
+        resolveLevelBoundaries(position: &newPosition)
 
         position = newPosition
         let delta = CGVector(dx: position.x - lastPosition.x, dy: position.y - lastPosition.y)
@@ -181,7 +186,6 @@ final class PlayerNode: SKSpriteNode, Entity {
         guard self.isFacingRight != facingRight else { return }
         self.isFacingRight = facingRight
         xScale = facingRight ? 1 : -1
-        configurePhysicsBody(preservingVelocity: true)
     }
 
     private func updateAnimationState(deltaTime: TimeInterval, deltaPosition: CGVector) {
@@ -347,21 +351,59 @@ final class PlayerNode: SKSpriteNode, Entity {
         hitboxRect(at: position)
     }
 
+    private func clampToLevelExtent(position newPosition: inout CGPoint) {
+        guard let extent = levelScene?.levelExtent, !extent.isEmpty else { return }
+        let hitbox = hitboxRect(at: newPosition)
+        let dxLeft = extent.minX - hitbox.minX
+        let dxRight = extent.maxX - hitbox.maxX
+        if dxLeft > 0 {
+            newPosition.x += dxLeft
+            if velocity.dx < 0 { velocity.dx = 0 }
+        } else if dxRight < 0 {
+            newPosition.x += dxRight
+            if velocity.dx > 0 { velocity.dx = 0 }
+        }
+    }
+
+    private func resolveLevelBoundaries(position newPosition: inout CGPoint) {
+        guard let boundaries = levelScene?.levelBounds, !boundaries.isEmpty else { return }
+        let hitbox = hitboxRect(at: newPosition)
+        var totalDx: CGFloat = 0
+        var totalDy: CGFloat = 0
+        for boundary in boundaries {
+            let intersection = boundary.intersection(hitbox)
+            guard !intersection.isNull, !intersection.isEmpty else { continue }
+            if intersection.width < intersection.height {
+                totalDx += (boundary.midX < hitbox.midX) ? intersection.width : -intersection.width
+            } else {
+                totalDy += (boundary.midY < hitbox.midY) ? intersection.height : -intersection.height
+            }
+        }
+        if totalDx != 0 {
+            newPosition.x += totalDx
+            velocity.dx = 0
+        }
+        if totalDy != 0 {
+            newPosition.y += totalDy
+            velocity.dy = 0
+            if totalDy > 0 {
+                isGrounded = true
+            }
+        }
+    }
+
     private func hitboxRect(at position: CGPoint) -> CGRect {
-        let leftOffset = size.width - hitboxOffsetRight - hitboxWidth
-        let offsetX = isFacingRight ? hitboxOffsetRight : leftOffset
-        let originX = position.x - size.width / 2 + offsetX
-        let originY = position.y - size.height / 2
+        let spriteMinX = isFacingRight
+            ? position.x - anchorX
+            : position.x - (size.width - anchorX)
+        let originX = spriteMinX + hitboxOffsetRight
+        let originY = position.y - anchorY
         return CGRect(x: originX, y: originY, width: hitboxWidth, height: hitboxHeight)
     }
 
-    private func configurePhysicsBody(preservingVelocity: Bool = false) {
-        let currentVelocity = velocity
-        let leftOffset = size.width - hitboxOffsetRight - hitboxWidth
-        let offsetX = isFacingRight ? hitboxOffsetRight : leftOffset
-        let centerX = -size.width / 2 + offsetX + hitboxWidth / 2
-        let centerY = -size.height / 2 + hitboxHeight / 2
-        let body = SKPhysicsBody(rectangleOf: CGSize(width: hitboxWidth, height: hitboxHeight), center: CGPoint(x: centerX, y: centerY))
+    private func configurePhysicsBody() {
+        let centerY = hitboxHeight / 2 - anchorY
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: hitboxWidth, height: hitboxHeight), center: CGPoint(x: 0, y: centerY))
         body.isDynamic = true
         body.affectedByGravity = false
         body.allowsRotation = false
@@ -372,8 +414,5 @@ final class PlayerNode: SKSpriteNode, Entity {
         body.collisionBitMask = PhysicsCategory.none
         body.contactTestBitMask = PhysicsCategory.hazard
         physicsBody = body
-        if preservingVelocity {
-            velocity = currentVelocity
-        }
     }
 }

@@ -7,10 +7,10 @@ final class LevelScene: BaseScene {
 
     private let motionManager = CMMotionManager()
     private let mapLoader: TiledMapLoader
-    private var collisions: [CGRect] = []
+    private(set) var collisions: [CGRect] = []
     private var killTriggers: [CGRect] = []
     private var cameraBounds: [CGRect] = []
-    private var levelBounds: [CGRect] = []
+    private(set) var levelBounds: [CGRect] = []
     private var hazardNodes: [SKNode] = []
     private let cameraController = CameraController()
 
@@ -367,10 +367,30 @@ final class LevelScene: BaseScene {
         killTriggers.forEach { drawDebug(rect: $0, stroke: .red, fill: SKColor.red.withAlphaComponent(0.2)) }
         cameraBounds.forEach { drawDebug(rect: $0, stroke: .green, fill: SKColor.clear) }
         levelBounds.forEach { drawDebug(rect: $0, stroke: .purple, fill: SKColor.clear) }
+
+        for enemy in enemies {
+            for shape in enemy.debugShapes() {
+                if shape.isCircle {
+                    drawDebug(circleCenter: shape.center, radius: shape.radius, stroke: shape.color, fill: SKColor.clear)
+                } else {
+                    drawDebug(rect: shape.rect, stroke: shape.color, fill: SKColor.clear)
+                }
+            }
+        }
     }
 
     private func drawDebug(rect: CGRect, stroke: SKColor, fill: SKColor) {
         let shape = SKShapeNode(rect: rect)
+        shape.strokeColor = stroke
+        shape.fillColor = fill
+        shape.lineWidth = 2
+        shape.isAntialiased = false
+        debugNode.addChild(shape)
+    }
+
+    private func drawDebug(circleCenter: CGPoint, radius: CGFloat, stroke: SKColor, fill: SKColor) {
+        let shape = SKShapeNode(circleOfRadius: radius)
+        shape.position = circleCenter
         shape.strokeColor = stroke
         shape.fillColor = fill
         shape.lineWidth = 2
@@ -449,7 +469,9 @@ final class LevelScene: BaseScene {
         restartWithFade()
     }
 
-    var playerCollisions: [CGRect] {
-        collisions
+    var levelExtent: CGRect {
+        let rects = collisions + levelBounds
+        guard let first = rects.first else { return .zero }
+        return rects.dropFirst().reduce(first) { $0.union($1) }
     }
 }

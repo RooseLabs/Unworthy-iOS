@@ -11,8 +11,8 @@ struct ViewportMetrics {
     }
 
     var scale: CGFloat {
-        guard targetSize.width > 0, targetSize.height > 0 else { return 1 }
-        return min(viewSize.width / targetSize.width, viewSize.height / targetSize.height)
+        guard targetSize.height > 0 else { return 1 }
+        return viewSize.height / targetSize.height
     }
 
     var visibleWorldSize: CGSize {

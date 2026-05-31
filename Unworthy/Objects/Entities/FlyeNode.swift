@@ -54,7 +54,7 @@ final class FlyeNode: SKSpriteNode, Entity {
         let texture = SKTexture(imageNamed: "Flye1")
         super.init(texture: texture, color: .white, size: texture.size())
         name = "Flye"
-        anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        anchorPoint = CGPoint(x: 299.5 / texture.size().width, y: 196 / texture.size().height)
         zPosition = GameConstants.layerEntities
         position = spawnPosition
         lastPosition = spawnPosition

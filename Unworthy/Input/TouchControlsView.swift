@@ -64,19 +64,21 @@ final class TouchControlsView: UIView {
         let safeRect = bounds.inset(by: safeAreaInsets)
         guard safeRect.width > 0, safeRect.height > 0 else { return }
 
-        let analogDiameter = bounds.width * 0.175
-        let actionDiameter = bounds.width * 0.09
-        let pauseDiameter = bounds.width * 0.045
+        let unit = safeRect.height
+
+        let analogDiameter = unit * 0.311
+        let actionDiameter = unit * 0.160
+        let pauseDiameter = unit * 0.080
 
         analogControl.bounds = CGRect(x: 0, y: 0, width: analogDiameter, height: analogDiameter)
         attackButton.bounds = CGRect(x: 0, y: 0, width: actionDiameter, height: actionDiameter)
         jumpButton.bounds = CGRect(x: 0, y: 0, width: actionDiameter, height: actionDiameter)
         pauseButton.bounds = CGRect(x: 0, y: 0, width: pauseDiameter, height: pauseDiameter)
 
-        place(analogControl, anchorX: 0.12, anchorY: 0.20, in: safeRect)
-        place(attackButton, anchorX: 0.825, anchorY: 0.155, in: safeRect)
-        place(jumpButton, anchorX: 0.925, anchorY: 0.275, in: safeRect)
-        place(pauseButton, anchorX: 0.95, anchorY: 0.925, in: safeRect)
+        place(analogControl, fromLeft: 0.213 * unit, fromBottom: 0.20 * unit, in: safeRect)
+        place(attackButton, fromRight: 0.311 * unit, fromBottom: 0.155 * unit, in: safeRect)
+        place(jumpButton, fromRight: 0.133 * unit, fromBottom: 0.275 * unit, in: safeRect)
+        place(pauseButton, fromRight: 0.089 * unit, fromTop: 0.075 * unit, in: safeRect)
     }
 
     override func safeAreaInsetsDidChange() {
@@ -108,9 +110,32 @@ final class TouchControlsView: UIView {
         _ = inputState.consumeAttackRequest()
     }
 
-    private func place(_ view: UIView, anchorX: CGFloat, anchorY: CGFloat, in safeRect: CGRect) {
-        let centerX = safeRect.minX + anchorX * safeRect.width
-        let centerY = safeRect.maxY - anchorY * safeRect.height
+    private func place(
+        _ view: UIView,
+        fromLeft leftMargin: CGFloat? = nil,
+        fromRight rightMargin: CGFloat? = nil,
+        fromBottom bottomMargin: CGFloat? = nil,
+        fromTop topMargin: CGFloat? = nil,
+        in safeRect: CGRect
+    ) {
+        let centerX: CGFloat
+        if let leftMargin {
+            centerX = safeRect.minX + leftMargin
+        } else if let rightMargin {
+            centerX = safeRect.maxX - rightMargin
+        } else {
+            centerX = safeRect.midX
+        }
+
+        let centerY: CGFloat
+        if let bottomMargin {
+            centerY = safeRect.maxY - bottomMargin
+        } else if let topMargin {
+            centerY = safeRect.minY + topMargin
+        } else {
+            centerY = safeRect.midY
+        }
+
         let halfWidth = view.bounds.width / 2
         let halfHeight = view.bounds.height / 2
         let clampedX = min(max(centerX, safeRect.minX + halfWidth), safeRect.maxX - halfWidth)

@@ -27,7 +27,6 @@ final class PauseMenuNode: SKNode {
         addChild(background)
 
         for label in [resumeLabel, restartLabel, returnLabel] {
-            label.fontSize = 54
             label.fontColor = normalColor
             label.horizontalAlignmentMode = .center
             label.verticalAlignmentMode = .center
@@ -42,11 +41,20 @@ final class PauseMenuNode: SKNode {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private static let baseFontSize: CGFloat = 290
+
     func resize(to size: CGSize) {
         background.path = CGPath(
             rect: CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height),
             transform: nil
         )
+
+        let scale = GameConstants.targetHeight > 0 ? size.height / GameConstants.targetHeight : 1
+        let fontSize = Self.baseFontSize * scale
+        for label in [resumeLabel, restartLabel, returnLabel] {
+            label.fontSize = fontSize
+        }
+
         let spacing: CGFloat = resumeLabel.fontSize * 1.8
         resumeLabel.position  = CGPoint(x: 0, y:  spacing)
         restartLabel.position = CGPoint(x: 0, y:  0)
