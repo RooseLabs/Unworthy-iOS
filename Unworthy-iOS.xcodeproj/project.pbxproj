@@ -21,11 +21,6 @@
 			path = Unworthy;
 			sourceTree = "<group>";
 		};
-		49E8FA252F6AC344007F3429 /* Unworthy-Android */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Unworthy-Android";
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,7 +37,6 @@
 		493F7FF12F618669003CC3BA = {
 			isa = PBXGroup;
 			children = (
-				49E8FA252F6AC344007F3429 /* Unworthy-Android */,
 				493F7FFC2F61866A003CC3BA /* Unworthy */,
 				493F7FFB2F61866A003CC3BA /* Products */,
 			);
